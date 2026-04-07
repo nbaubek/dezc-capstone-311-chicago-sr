@@ -15,7 +15,6 @@ application_default_credentials.json
 .vscode
 
 # MCP servers
-.mcp.json
 .claude
 
 # ==========================================

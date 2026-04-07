@@ -1,0 +1,4 @@
+infra/.terraform/**/* filter=lfs diff=lfs merge=lfs -text
+infra/*.tfstate* filter=lfs diff=lfs merge=lfs -text
+infra/.terraform.lock.hcl filter=lfs diff=lfs merge=lfs -text
+*.tfplan filter=lfs diff=lfs merge=lfs -text
