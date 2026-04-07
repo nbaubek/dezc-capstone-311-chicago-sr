@@ -1,0 +1,20 @@
+sr_type,target_days,category
+"Abandoned Vehicle",7,Infrastructure
+"Garbage Cart Black Maintenance",3,Sanitation
+"Garbage Cart Blue Maintenance",3,Sanitation
+"Graffiti Removal",7,Sanitation
+"Pothole in Street",7,Infrastructure
+"Rodent Baiting / Rat Request",5,Sanitation
+"Street Light - All Out",2,Infrastructure
+"Street Light - One Out",3,Infrastructure
+"Tree Debris",7,Parks
+"Tree Trim Request",14,Parks
+"Water Leak",1,Infrastructure
+"Abandoned Building Complaint",14,Infrastructure
+"Street Light - Dim/Off",3,Infrastructure
+"Sanitation Code Violation",7,Sanitation
+"Vacant/Abandoned Building",14,Infrastructure
+"Traffic Signal Out",1,Infrastructure
+"Street Light - Intermittent Operation",3,Infrastructure
+"Rodent Baiting",5,Sanitation
+"Tree Emergency",1,Parks

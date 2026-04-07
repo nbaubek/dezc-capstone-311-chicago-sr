@@ -1,0 +1,55 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+
+# Environment variables
+.env
+
+application_default_credentials.json
+
+.vscode
+
+# MCP servers
+.mcp.json
+.claude
+
+# ==========================================
+# dbt Specific (Nested in /transform)
+# ==========================================
+
+# Ignore the compiled code and build artifacts
+transform/target/
+
+# Ignore the packages installed via 'dbt deps'
+transform/dbt_packages/
+
+# Ignore dbt logs (very useful to keep git clean)
+transform/logs/
+
+# If you have your profiles.yml inside the transform/ folder
+# (Professional Tip: It's better to keep this in ~/.dbt/, but if it's here, ignore it!)
+transform/profiles.yml
+
+# ==========================================
+# Python & Environment
+# ==========================================
+
+# Virtual environments
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# IDE Specific
+.vscode/
+.idea/
+
+# OS Specific
+.DS_Store
+Thumbs.db

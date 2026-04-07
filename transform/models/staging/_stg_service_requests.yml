@@ -1,0 +1,88 @@
+# Schema tests and documentation for stg_service_requests
+
+version: 2
+
+models:
+  - name: stg_service_requests
+    description: "Staging table for Chicago 311 service requests. Cleans, casts, and renames columns from the raw Iceberg source. Filters out legacy records and duplicates."
+
+    columns:
+      - name: service_request_number
+        description: "Unique identifier for the service request"
+        tests:
+          - unique
+          - not_null
+
+      - name: created_date
+        description: "Date when the service request was created"
+        tests:
+          - not_null
+
+      - name: closed_date
+        description: "Date when the service request was closed"
+
+      - name: sr_type
+        description: "Type of service request"
+
+      - name: current_status
+        description: "Current status of the request"
+        tests:
+          - not_null
+
+      - name: owner_department
+        description: "Department responsible for the request"
+
+      - name: created_year
+        description: "Year when the service request was created (partition column)"
+        tests:
+          - not_null
+
+      - name: created_month
+        description: "Month when the service request was created (partition column)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min: 1
+              max: 12
+
+      - name: community_area
+        description: "Chicago community area (77 neighborhoods)"
+
+      - name: ward
+        description: "Chicago ward (50 political districts)"
+
+      - name: latitude
+        description: "Latitude coordinate of the request location"
+        tests:
+          - dbt_utils.accepted_range:
+              min: -90
+              max: 90
+
+      - name: longitude
+        description: "Longitude coordinate of the request location"
+        tests:
+          - dbt_utils.accepted_range:
+              min: -180
+              max: 180
+
+      - name: duplicate
+        description: "Flag indicating if this is a duplicate request"
+
+      - name: legacy_record
+        description: "Flag indicating if this is a legacy record (pre-2018)"
+
+      - name: last_modified_date
+        description: "Last modified date for incremental updates"
+        tests:
+          - not_null
+
+      - name: days_open
+        description: "Days the request has been open (null if closed)"
+
+      - name: resolution_days
+        description: "Days to resolve the request (null if still open)"
+
+      - name: dbt_loaded_at
+        description: "Timestamp when dbt loaded this record"
+        tests:
+          - not_null

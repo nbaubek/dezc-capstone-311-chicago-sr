@@ -1,0 +1,32 @@
+# dbt profiles.yml - BigQuery connection
+# For local development, copy this and fill in your credentials
+# For production, use environment variables (recommended)
+
+# Development profile using environment variables
+chicago_311:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "311_sr_analytics"
+      threads: 4
+      timeout_seconds: 300
+      location: US
+      priority: interactive
+      # For service account authentication (recommended for production):
+      # method: service-account
+      # keyfile: "{{ env_var('GCP_KEYFILE_PATH') }}"
+
+    # Production profile
+    prod:
+      type: bigquery
+      method: service-account
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "311_sr_analytics"
+      threads: 8
+      timeout_seconds: 600
+      location: US
+      priority: batch
+      keyfile: "{{ env_var('GCP_KEYFILE_PATH') }}"

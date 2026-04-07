@@ -1,0 +1,75 @@
+# Source definitions for Chicago 311 data
+# This defines the Iceberg table as a source for dbt
+
+version: 2
+
+sources:
+  - name: ice_lakehouse
+    description: "Apache Iceberg lakehouse data from GCS with Neon SQL catalog"
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: 311_sr_analytics
+    tables:
+      - name: service_requests
+        description: "Chicago 311 service requests from Socrata API"
+        columns:
+          - name: service_request_number
+            description: "Unique identifier for the service request"
+            tests:
+              - unique
+              - not_null
+
+          - name: created_date
+            description: "Date when the service request was created"
+            tests:
+              - not_null
+
+          - name: closed_date
+            description: "Date when the service request was closed"
+
+          - name: sr_type
+            description: "Type of service request (e.g., Pothole, Graffiti Removal)"
+
+          - name: current_status
+            description: "Current status of the request"
+
+          - name: owner_department
+            description: "Department responsible for the request"
+
+          - name: created_year
+            description: "Year when the service request was created (partition column)"
+            tests:
+              - not_null
+
+          - name: created_month
+            description: "Month when the service request was created (partition column)"
+            tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  min: 1
+                  max: 12
+
+          - name: community_area
+            description: "Chicago community area (77 neighborhoods)"
+
+          - name: ward
+            description: "Chicago ward (50 political districts)"
+
+          - name: latitude
+            description: "Latitude coordinate of the request location"
+
+          - name: longitude
+            description: "Longitude coordinate of the request location"
+
+          - name: zip_code
+            description: "ZIP code of the request location"
+
+          - name: duplicate
+            description: "Flag indicating if this is a duplicate request"
+
+          - name: legacy_record
+            description: "Flag indicating if this is a legacy record (pre-2018)"
+
+          - name: last_modified_date
+            description: "Last modified date for incremental updates"
+            tests:
+              - not_null
