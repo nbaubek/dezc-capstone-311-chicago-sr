@@ -21,12 +21,12 @@ models:
       +schema: staging
       +tags: ["staging"]
 
-    intermediate:
+intermediate:
       +materialized: table
       +schema: intermediate
       +tags: ["intermediate"]
 
-    marts:
+marts:
       +materialized: table
       +schema: marts
 

@@ -1,0 +1,12 @@
+# BigQuery BigLake Iceberg Catalog Integration
+# See: https://docs.getdbt.com/docs/mesh/iceberg/bigquery-iceberg-support
+
+catalogs:
+  - name: bigquery_iceberg_catalog
+    active_write_integration: biglake_metastore
+    write_integrations:
+      - name: biglake_metastore
+        external_volume: "{{ env_var('LAKEHOUSE_BUCKET') }}"
+        table_format: iceberg
+        file_format: parquet
+        catalog_type: biglake_metastore

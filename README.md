@@ -72,13 +72,13 @@ Records with legacy_record = true (pre-2018 system) are filtered in stg_service_
 BR-003: SLA target assignment
 SLA targets are assigned by joining sr_type to the sla_targets seed. Request types with no matching seed entry receive a default target of 14 calendar days and are flagged with sla_target_source = 'default'. This flag surfaces in the mart so analysts know which types lack explicit targets.
 BR-004: Resolution time calculation
-resolution_days is calculated as calendar days between created_date and closed_date. Business days variant uses dim_date to exclude weekends and Illinois public holidays. Both measures are carried in fct_sla_performance. SLA breach is evaluated against calendar days to match Chicago's published targets.
+resolution_days is calculated as calendar days between `created_date` and `closed_date`. Business days variant uses `dim_date` to exclude weekends and Illinois public holidays. Both measures are carried in fct_sla_performance. SLA breach is evaluated against calendar days to match Chicago's published targets.
 BR-005: Geographic equity index
 The equity index for a community area is defined as: area_avg_resolution_days / citywide_avg_resolution_days for the same sr_type and time period. A value of 1.0 means the area receives average service. Above 1.0 means slower than average (disadvantaged). Below 1.0 means faster. This makes geographic inequity quantifiable and comparable across request types.
 BR-006: Open request age
-For still-open requests, days_open is calculated as current_date - created_date. Requests open longer than their SLA target are flagged sla_at_risk = true in fct_service_requests regardless of whether they have technically breached yet.
+For still-open requests, days_open is calculated as `current_date` - `created_date`. Requests open longer than their SLA target are flagged sla_at_risk = true in fct_service_requests regardless of whether they have technically breached yet.
 BR-007: Incremental load watermark
-Daily incremental runs fetch all records where last_modified_date > last_successful_run_date. The watermark is stored in Prefect as a flow variable and updated only on successful completion. Failed runs do not advance the watermark — the next run re-fetches from the last successful point.
+Daily incremental runs fetch all records where `last_modified_date` > `last_successful_run_date`. The watermark is stored in Prefect as a flow variable and updated only on successful completion. Failed runs do not advance the watermark — the next run re-fetches from the last successful point.
 
 ---
 
@@ -147,7 +147,7 @@ A transaction fact table captures one immutable event. But a service request isn
 ---
 
 
-Let's go ahead and discuss the tech stack
+Let's go ahead and discuss the tech stack.
 
 
 ## Stack and Requirements
@@ -155,16 +155,34 @@ Let's go ahead and discuss the tech stack
 + **UV** as a package manager
 + **Docker Compose** for containerized setup
 + **Prefect Cloud (free tier)** for workflow orchestration
-+ **Apache Iceberg via Pyiceberg** for Data Lakehouse capabilities
-+ **Terraform** for GCP infrastructure management
++ **Apache Iceberg via BigLake/BigQuery/GCS** for Data Lakehouse capabilities
 + **GCP resources: GCS, BigQuery with BigLake, Looker** 
   + **GCS** for storage
   + **BigQuery** as compute engine for Iceberg tables
   + **BigLake** for Iceberg catalog
   + **Looker** for dashboarding
++ **Terraform** for GCP infrastructure management
 + **dbt** for data modeling and transformation, and data quality checks
 + **Great Expectations** for data quality checks
 + **Make** for easier management of the project
++ **Github CI/CD** for automating the building, testing, and deployment of code changes and thereby faster code releases
++ **mypy** for type checking, **pytest** for Python testing, **sqlfluff** for testing SQL in dbt models, and **ruff** as Python linter and formatter
+
+<br>
+
+A high-level view of how the architecture works:
+
+| Components | Implementation |
+| :--- | :--- |
+| **Catalog** | BigLake Metastore (built into BigQuery) |
+| **Ingestion** | BigQuery Python SDK (`google-cloud-bigquery`) |
+| **WAP** | Audit table swap |
+| **Metadata** | Stored by BigQuery in BigLake |
+
+
+
+---
+
 
 ## Terraform setup
 
@@ -206,8 +224,8 @@ You need to run `docker compose up -d` or `make container-up` command to trigger
 
 ```
 ┌─────────────┐     ┌─────────────────┐     ┌──────────────────────┐
-│  Socrata    │────▶│  Prefect Flows  │────▶│  Apache Iceberg      │
-│  API        │     │  (Orchestration)│     │  + SQL Catalog (Neon)│
+│  Socrata    │────▶│  Prefect Flows  │────▶│  BigQuery Iceberg   │
+│  API        │     │  (Orchestration)│     │  + BigLake Metastore│
 └─────────────┘     └─────────────────┘     └──────────┬───────────┘
                                                         │
                                                         ▼
@@ -219,25 +237,25 @@ You need to run `docker compose up -d` or `make container-up` command to trigger
 
 ### Common Concepts
 
-**Iceberg SQL Catalog (Neon):** Stores table metadata pointing to GCS data files. Iceberg reads this metadata to locate actual Parquet files. When ingestion fails halfway, stale pointers may remain — cleanup Neon metadata before re-ingesting.
+**BigLake Metastore:** BigQuery's native Iceberg catalog service. Manages Iceberg table metadata automatically without needing a third-party catalog. Tables are created and managed directly through BigQuery SQL.
 
-**Partitioning:** Year/month partitioning using `IdentityTransform` on derived `created_year` and `created_month` columns. Creates paths like `gs://bucket/year=2024/month=01/`.
+**Partitioning:** Year/month partitioning using derived `created_year` and `created_month` columns. Creates paths like `gs://bucket/year=2024/month=01/`.
 
-**WAP Pattern (Daily Flow):** Write-Audit-Publish isolates new data on an audit branch before atomic promotion to main. Failed audits discard the branch — main stays clean.
+**WAP Pattern (Daily Flow):** BigQuery doesn't support Iceberg's native branching, so we use **audit table swap** pattern:
+1. Write new data to audit table
+2. Validate audit data
+3. Insert audit data into main table (with duplicate prevention)
+4. Clear audit table for next run
 
 ### Flows Directory Structure
 
 ```
 flows/
-├── chicago_pipeline.py    # Three main flows: yearly_flow, daily_flow, backfill_flow
+├── chicago_pipeline.py        # Three main flows: yearly_flow, daily_flow, backfill_flow
 ├── tasks/
-│   ├── __init__.py        # Exports: extract_and_load_chunk, enable_wap,
-│   │                       # create_audit_branch, audit_branch, publish_branch,
-│   │                       # cleanup_branch, WAP_BRANCH
-│   ├── ingestion.py        # Core ingestion task + WAP helpers
-│   └── watermark.py        # (Deprecated - not used)
-├── .pyiceberg.yaml         # Iceberg config (points to Neon)
-└── DEPLOYMENT_GUIDE.md     # (Deleted - outdated)
+│   ├── __init__.py            # Exports BigQuery ingestion functions
+│   └── bigquery_ingestion.py  # Core BigQuery/BigLake ingestion tasks
+├── .pyiceberg.yaml            # Deprecated (BigQuery manages Iceberg directly)
 ```
 
 ### Prefect Setup
@@ -309,28 +327,28 @@ docker-compose exec flow-runner python -c "from flows.chicago_pipeline import ye
 
 ---
 
-### Daily Flow (WAP)
+### Daily Flow (WAP - Audit Table Swap)
 
 **Purpose:** Incremental updates using Write-Audit-Publish. Scheduled at midnight UTC.
 
-**WAP Cycle:**
+**WAP Cycle (BigQuery Audit Table Swap):**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ 1. Enable:   Set write.wap.enabled=true on table               │
-│ 2. Create:   Make audit branch from main snapshot               │
-│ 3. Write:    Append last 24h data to branch (3-4K rows)        │
-│ 4. Audit:    Scan branch for date-filtered data quality checks  │
-│ 5. Publish:  Atomically fast-forward main to branch snapshot   │
-│ 6. Cleanup:  Delete audit branch                                │
+│ 1. Setup:   Ensure BigQuery dataset, tables, and audit table exist │
+│ 2. Clear:   Clear audit table for new data                      │
+│ 3. Write:    Append last 24h data to audit table (3-4K rows)   │
+│ 4. Audit:    Validate audit table (row count, null checks)     │
+│ 5. Merge:    Insert audit data into main table (deduplicated)   │
+│ 6. Cleanup:  Clear audit table for next run                     │
 └─────────────────────────────────────────────────────────────────┘
-           ✅ Pass: Main updated   ❌ Fail: Branch discarded
+           ✅ Pass: Main updated   ❌ Fail: Audit table cleared
 ```
 
 **Audit Checks:**
 - Row count ≥ minimum (default 1)
 - No null `created_date` values
-- Date-filtered scan (avoids reading entire table)
+- Date-filtered validation (avoids reading entire table)
 
 **Example:**
 ```python
@@ -338,7 +356,7 @@ from flows.chicago_pipeline import daily_flow
 daily_flow()  # Automatically uses 24h lookback
 ```
 
-**Performance:** ~2 minutes for 3-4K rows. Audit scans only new data via date filter.
+**Performance:** ~2 minutes for 3-4K rows. Validation uses date filter for efficiency.
 
 ---
 
@@ -376,15 +394,135 @@ backfill_flow("2024-01-01", "2025-01-01", chunk_months=3)
 
 ### Data Summary
 
+This [link](https://dev.socrata.com/foundry/data.cityofchicago.org/v6vf-nfxy) has the description of columns.
+
+**Schema**
+
+*Raw Socrata API Response (all 36 columns are TEXT/STRING):*
+
+| Column | Description |
+|--------|-------------|
+| `sr_number` | Unique service request identifier |
+| `sr_type` | Type of service request (e.g., "Pothole Repair") |
+| `sr_short_code` | Short code for the service type |
+| `owner_department` | Department responsible for the request |
+| `status` | Current status (e.g., "Open", "Completed") |
+| `origin` | Source of the request (e.g., "311 Center", "Mobile App") |
+| `created_date` | When the request was submitted (ISO timestamp) |
+| `last_modified_date` | Last update timestamp |
+| `closed_date` | When the request was resolved (NULL if open) |
+| `street_address` | Street address |
+| `city` | City (always "Chicago") |
+| `state` | State (always "IL") |
+| `zip_code` | ZIP code |
+| `street_number` | Street number |
+| `street_direction` | Street direction (N, S, E, W) |
+| `street_name` | Street name |
+| `street_type` | Street type (St, Ave, Blvd, etc.) |
+| `duplicate` | Flag for duplicate requests ("true"/"false") |
+| `legacy_record` | Flag for pre-2018 records ("true"/"false") |
+| `community_area` | Chicago community area (1–77) |
+| `ward` | Political ward (1–50) |
+| `police_sector` | Police sector |
+| `police_district` | Police district |
+| `police_beat` | Police beat |
+| `precinct` | Precinct |
+| `created_hour` | Hour of day (0–23) |
+| `created_day_of_week` | Day of week (0–6) |
+| `x_coordinate` | X coordinate (State Plane) |
+| `y_coordinate` | Y coordinate (State Plane) |
+| `latitude` | Latitude coordinate |
+| `longitude` | Longitude coordinate |
+| `created_department` | Department that created the request |
+| `electrical_district` | Electrical district |
+| `electricity_grid` | Electricity grid identifier |
+| `parent_sr_number` | Parent service request number |
+
+*Note*: `city`, `state`, and `location` columns are also received but dropped during storage (always "Chicago" and "IL"). `location` is GeoJSON point location is a combination of `latitude` and `longitude`.
+
+**Schema Changes After Polars Type Casting:**
+
+
+
+| Column | Original Type | After Casting | Notes |
+|--------|---------------|----------------|-------|
+| `service_request_number` | TEXT | STRING | Renamed from `sr_number`; primary key |
+| `sr_type` | TEXT | STRING | |
+| `sr_short_code` | TEXT | STRING (nullable) | Empty string → NULL |
+| `owner_department` | TEXT | STRING | |
+| `current_status` | TEXT | STRING | Renamed from `status` |
+| `origin` | TEXT | STRING (nullable) | Empty string → NULL |
+| `created_date` | TEXT | TIMESTAMP | ISO timestamp → datetime |
+| `last_modified_date` | TEXT | TIMESTAMP | ISO timestamp → datetime |
+| `closed_date` | TEXT | TIMESTAMP (nullable) | Empty string → NULL |
+| `street_address` | TEXT | STRING | Empty string → NULL |
+| `zip_code` | TEXT | STRING (nullable) | Empty string → NULL |
+| `street_number` | TEXT | STRING | Empty string → NULL |
+| `street_direction` | TEXT | STRING | Empty string → NULL |
+| `street_name` | TEXT | STRING | Empty string → NULL |
+| `street_type` | TEXT | STRING | Empty string → NULL |
+| `duplicate` | TEXT | BOOLEAN | "true"/"false" string → True/False |
+| `legacy_record` | TEXT | BOOLEAN | "true"/"false" string → True/False |
+| `community_area` | TEXT | INT64 | Empty string → NULL |
+| `ward` | TEXT | INT64 (nullable) | Empty string → NULL |
+| `police_sector` | TEXT | STRING | Empty string → NULL |
+| `police_district` | TEXT | STRING (nullable) | Empty string → NULL |
+| `police_beat` | TEXT | STRING (nullable) | Empty string → NULL |
+| `precinct` | TEXT | STRING (nullable) | Empty string → NULL |
+| `created_hour` | TEXT | INT64 (nullable) | Empty string → NULL |
+| `created_day_of_week` | — | INT64 | Derived from `created_date.dt.weekday()` |
+| `x_coordinate` | TEXT | FLOAT64 (nullable) | Empty string → NULL |
+| `y_coordinate` | TEXT | FLOAT64 (nullable) | Empty string → NULL |
+| `latitude` | TEXT | FLOAT64 (nullable) | Empty string → NULL |
+| `longitude` | TEXT | FLOAT64 (nullable) | Empty string → NULL |
+| `created_department` | TEXT | STRING (nullable) | Empty string → NULL |
+| `electrical_district` | TEXT | STRING (nullable) | Empty string → NULL |
+| `electricity_grid` | TEXT | STRING (nullable) | Empty string → NULL |
+| `parent_sr_number` | TEXT | STRING (nullable) | Empty string → NULL |
+| `created_year` | — | INT64 | Derived: `YEAR(created_date)` |
+| `created_month` | — | INT64 | Derived: `MONTH(created_date)` |
+
+**Columns Renamed (during ingestion):**
+
+| Original Column | New Column | Reason |
+|-----------------|------------|--------|
+| `sr_number` | `service_request_number` | More descriptive name |
+| `status` | `current_status` | More descriptive name |
+
+**Columns Dropped (Not Stored in Iceberg tables):**
+
+| Column | Reason |
+|--------|--------|
+| `city` | Always "Chicago" - redundant |
+| `state` | Always "IL" - redundant |
+| `location` | GeoJSON point - redundant with lat/long columns |
+
+**Derived Columns Added:**
+
+| Column | Calculation | Purpose |
+|--------|------------|---------|
+| `created_year` | `YEAR(created_date)` | Partitioning by year |
+| `created_month` | `MONTH(created_date)` | Partitioning by month |
+| `created_day_of_week` | `created_date.dt.weekday()` | Day of week (0=Monday, 6=Sunday) |
+
+
+*Note:* BigQuery does not enforce nullability constraints. All columns in BigQuery are nullable regardless of schema definitions. Nullable means the column can contain NULL values (missing data).
+
+---
+
+**Row Counts by Year:**
+
+
 | Year | Rows | Notes |
 |------|------|-------|
 | 2024 | 1,913,929 | Full year |
 | 2025 | 1,960,595 | Full year |
-| 2026 | 498,531 | Jan–Apr only |
+| 2026 | 498,531-and counting | Jan–Apr only |
 | **Total** | **4,373,055** | 291 MiB compressed |
 
-**Storage Efficiency:** 4.37M records in Parquet = 291 MiB. Equivalent CSV would be 8-10x larger (~2.3–2.9 GB).
+**Storage Efficiency:** ~4.4M records in Parquet = 291 MiB. Equivalent CSV would be 8-10x larger (~2.3–2.9 GB).
 
+---
 
 ## Testing and development dependencies
 
@@ -392,3 +530,21 @@ mypy
 ruff
 pytest
 sqlfluff
+
+---
+
+## How do I measure that the pipeline is reliable (Whether with AI assistant or without)?
+
+**The "Defensive Checklist"**
+
+For every piece of code and the architecture as a whole, ask yourself:
+
+| Category           | The "Unknown" Question                                                      |
+|-------------------|----------------------------------------------------------------------------|
+| Idempotency       | If I run this script twice, will it double the data or stay the same?      |
+| Schema Evolution  | What happens if a new column is added to the source tomorrow?              |
+| Partial Failure   | If the job crashes at 50%, do I have a mess of "half-written" data?        |
+| Observation       | If this fails at 3:00 AM, will the logs tell me exactly why?               |
+
+
+

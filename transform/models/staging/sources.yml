@@ -1,16 +1,16 @@
 # Source definitions for Chicago 311 data
-# This defines the Iceberg table as a source for dbt
+# This defines the BigQuery Iceberg table as a source for dbt
 
 version: 2
 
 sources:
   - name: ice_lakehouse
-    description: "Apache Iceberg lakehouse data from GCS with Neon SQL catalog"
+    description: "Apache Iceberg lakehouse data from GCS managed by BigQuery BigLake Metastore"
     database: "{{ env_var('GCP_PROJECT_ID') }}"
-    schema: 311_sr_analytics
+    schema: "{{ env_var('BIGQUERY_DATASET_ID', 'chicago_311_lakehouse') }}"
     tables:
       - name: service_requests
-        description: "Chicago 311 service requests from Socrata API"
+        description: "Chicago 311 service requests from Socrata API, stored as Iceberg on GCS"
         columns:
           - name: service_request_number
             description: "Unique identifier for the service request"

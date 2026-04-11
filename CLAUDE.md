@@ -1,4 +1,183 @@
 
+## Security Measures for Git Commits
+
+**CRITICAL**: Before committing or pushing to any remote repository, verify that no credentials or sensitive data are included.
+
+### Files/Directories That MUST Be Ignored
+
+Ensure these are in `.gitignore`:
+
+| Path | Reason |
+|------|--------|
+| `.env` | Contains GCP project ID, API tokens, database credentials |
+| `.venv/`, `venv/` | Virtual environment with installed packages and potential cached credentials |
+| `application_default_credentials.json` | GCP service account credentials |
+| `*.key`, `*.json` (credential files) | Service account keys, API keys |
+| `infra/.terraform/` | Terraform state and provider binaries (may contain sensitive info) |
+| `infra/terraform.tfstate` | Terraform state file (contains resource IDs and secrets) |
+| `infra/terraform.tfstate.backup` | Backup of Terraform state |
+| `infra/.terraform.lock.hcl` | Contains provider versions (can be committed, but review first) |
+| `transform/target/` | dbt compiled code and build artifacts |
+| `transform/dbt_packages/` | Installed dbt packages (can be regenerated) |
+| `transform/logs/` | dbt logs (may contain connection strings) |
+| `transform/profiles.yml` | If it contains actual credentials (use template instead) |
+| `.mcp.json` | MCP server configurations (may contain API keys) |
+| `.claude/` | Claude Code workspace settings |
+| `.vscode/` | IDE settings (local workspace config) |
+
+### Terraform Security
+
+1. **Never commit `terraform.tfstate` files** - they contain sensitive resource IDs and potentially secrets
+2. **Use Terraform remote state** (GCS, Terraform Cloud, etc.) instead of local state
+3. **Don't hardcode secrets in Terraform** - use environment variables or secret managers
+4. **Use `tfsec` or `checkov`** to scan for security issues before committing
+5. **Review `.terraform.lock.hcl`** before committing - it's usually safe, but verify no unexpected providers
+
+### GCP Credentials
+
+- **Never commit service account keys** (`.json` files)
+- **Use Application Default Credentials** (`gcloud auth application-default login`) for development
+- **For production**, use Workload Identity or Secret Manager
+- **Rotate credentials immediately if accidentally committed**
+- **Use `git-secrets` or similar tools** to scan for leaked credentials
+
+### Environment Variables
+
+- **Never commit `.env` files** - they contain all sensitive configuration
+- **Always use `.env.example` as a template** with placeholder values
+- **Document required environment variables** in README.md
+- **Use `.env.local` for local overrides** (also gitignored)
+
+### Pre-Commit Checklist
+
+Before committing, run these checks:
+
+```bash
+# 1. Check git status for any untracked sensitive files
+git status
+
+# 2. Check .gitignore is working (should show no credential files)
+git check-ignore -v .env .venv/ application_default_credentials.json infra/terraform.tfstate
+
+# 3. Search for common credential patterns in staged files
+git diff --cached | grep -i "password\|secret\|token\|key\|credential"
+
+# 4. Use git-secrets if installed
+git secrets --scan
+
+# 5. Check Terraform state
+git ls-files | grep -E "tfstate|\.terraform/"
+```
+
+### If You Accidentally Commit Credentials
+
+1. **Immediately rotate the compromised credentials**
+2. **Remove from git history** (not just `git rm`):
+   ```bash
+   # For single file
+   git filter-branch --force --index-filter \
+     "git rm --cached --ignore-unmatch PATH_TO_FILE" HEAD
+   git push origin --force
+   ```
+3. **Force push to remote**
+4. **Notify all team members to rotate their credentials**
+5. **Consider repository access auditing**
+
+### .gitignore Best Practices
+
+Keep your `.gitignore` comprehensive and organized:
+
+```gitignore
+# Environment and credentials
+.env
+.env.local
+.env.*.local
+application_default_credentials.json
+*.key
+*.pem
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+transform/profiles.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MCP and AI tools
+.mcp.json
+.claude/
+```
+
+### Branching and Commit Practices
+
+1. **Never commit directly to `main`** - always use feature branches
+2. **Always ask for confirmation before pushing** - show what will be pushed
+3. **Review the diff** before committing:
+   ```bash
+   git diff --staged
+   ```
+4. **Use commit message prefixes** for clarity:
+   - `[infra]` - Infrastructure changes
+   - `[feat]` - New features
+   - `[fix]` - Bug fixes
+   - `[docs]` - Documentation updates
+   - `[chore]` - Maintenance tasks
+
+### Recommended Pre-Commit Hook
+
+Create `.git/hooks/pre-commit` (make executable):
+
+```bash
+#!/bin/bash
+echo "🔍 Checking for sensitive data in staged files..."
+
+# Check for common credential patterns
+if git diff --cached --name-only | xargs grep -lE "password|secret|token|api_key|credential|private_key"; then
+    echo "❌ ABORT: Found potential credentials in staged files!"
+    echo "Please remove sensitive data before committing."
+    exit 1
+fi
+
+# Check for terraform state
+if git diff --cached --name-only | grep -E "\.tfstate$"; then
+    echo "❌ ABORT: Terraform state file detected in staged files!"
+    echo "Never commit .tfstate files. Use remote state instead."
+    exit 1
+fi
+
+# Check for .env files
+if git diff --cached --name-only | grep -E "\.env$"; then
+    echo "❌ ABORT: .env file detected in staged files!"
+    echo "Never commit .env files. Use .env.example as template."
+    exit 1
+fi
+
+echo "✅ Pre-commit checks passed!"
+```
+
+---
 
 ## How to work with dbt and data models
 
@@ -73,7 +252,8 @@ Before executing any dbt command, you MUST verify that the environment is ready:
 
 ### Branching
 
-Never commit directly to main. Always branch:
+Always ask for confirmation before committing or pushing anything. Never commit directly to main. Always create a separate branch:
+
 ```bash
 git checkout main && git pull origin main
 git checkout -b feature/<description>
