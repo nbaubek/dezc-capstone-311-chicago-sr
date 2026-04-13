@@ -10,7 +10,7 @@ chicago_311:
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT_ID') }}"
-      dataset: "311_sr_analytics"
+      dataset: "chicago_311_sr_analytics"
       threads: 4
       timeout_seconds: 300
       location: US
@@ -24,7 +24,7 @@ chicago_311:
       type: bigquery
       method: service-account
       project: "{{ env_var('GCP_PROJECT_ID') }}"
-      dataset: "311_sr_analytics"
+      dataset: "chicago_311_sr_analytics"
       threads: 8
       timeout_seconds: 600
       location: US

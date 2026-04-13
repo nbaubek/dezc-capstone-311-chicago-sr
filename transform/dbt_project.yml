@@ -1,9 +1,9 @@
 # dbt project configuration for Chicago 311 Analytics
-name: '311_sr_analytics'
-version: '1.0.0'
+name: "chicago_311_sr_analytics"
+version: "1.0.0"
 config-version: 2
 
-profile: 'chicago_311'
+profile: chicago_311
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
@@ -15,35 +15,54 @@ target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
 models:
-  311_sr_analytics:
+  chicago_311_sr_analytics:
     staging:
       +materialized: view
       +schema: staging
       +tags: ["staging"]
 
-intermediate:
-      +materialized: table
+    intermediate:
+      +materialized: view
       +schema: intermediate
       +tags: ["intermediate"]
 
-marts:
+    marts:
       +materialized: table
       +schema: marts
+      +catalog_name: bigquery_iceberg_catalog
+
+    core:
+      +materialized: table
+      +schema: core
+      +catalog_name: bigquery_iceberg_catalog
+
+    operations:
+      +materialized: table
+      +schema: operations
+      +catalog_name: bigquery_iceberg_catalog
+
+    facts:
+      +materialized: table
+      +schema: facts
+      +catalog_name: bigquery_iceberg_catalog
+      +incremental_strategy: merge
+
+    dimensions:
+      +materialized: table
+      +schema: dimensions
+      +catalog_name: bigquery_iceberg_catalog
 
 seeds:
-  311_sr_analytics:
+  chicago_311_sr_analytics:
     +schema: seeds
 
 tests:
-  311_sr_analytics:
+  chicago_311_sr_analytics:
     +schema: tests
 
 snapshots:
-  311_sr_analytics:
+  chicago_311_sr_analytics:
     +schema: snapshots
 
 on-run-start:
   - "{{ create_schema_if_not_exists(target.database, target.schema) }}"
-
-on-run-end:
-  - "{{ run_query('GRANT SELECT ON ALL TABLES IN SCHEMA ' ~ target.schema ~ ' TO \"data_analyst\"') }}"

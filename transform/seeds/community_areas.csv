@@ -1,78 +1,78 @@
-area_number,area_name,longitude,latitude,shape_area
-1,Rogers Park,-87.661084,42.008928,24614844
-2,West Ridge,-87.690515,42.005174,28893656
-3,Uptown,-87.656382,41.969298,23915046
-4,Lincoln Square,-87.689457,41.967258,30673886
-5,North Center,-87.657433,41.952498,20424971
-6,Lake View,-87.652303,41.940685,27682863
-7,Lincoln Park,-87.645576,41.921091,25147074
-8,Near North Side,-87.632439,41.900923,26401910
-9,Edgewater,-87.657268,41.980276,24440241
-10,Uptown,-87.665806,41.978633,26583696
-11,Norwood Park,-87.739534,42.009408,37331672
-12,Jefferson Park,-87.738755,41.979454,35933590
-13,Forest Glen,-87.711916,41.991425,24900660
-14,Albany Park,-87.715286,41.969877,25685619
-15,Portage Park,-87.743309,41.951450,34172778
-16,Irving Park,-87.721119,41.954779,29556230
-17,Dunning,-87.788211,41.965828,36760053
-18,Montclare,-87.795694,41.967565,21958766
-19,Belmont Cragin,-87.748625,41.937974,39707466
-20,Hermosa,-87.730343,41.929101,22213164
-21,Avondale,-87.710795,41.936635,20136624
-22,Logan Square,-87.699757,41.925310,29383949
-23,Humboldt Park,-87.694034,41.906595,30893184
-24,West Town,-87.683495,41.918014,27875124
-25,Austin,-87.786688,41.878384,57103245
-26,West Garfield Park,-87.735445,41.878209,40812352
-27,East Garfield Park,-87.706156,41.878165,30548836
-28,Near West Side,-87.666703,41.876929,42908563
-29,North Lawndale,-87.731237,41.861816,49879455
-30,South Lawndale,-87.723918,41.848369,49090630
-31,Lower West Side,-87.679656,41.854865,23832491
-32,Loop,-87.631621,41.884344,23167185
-33,Near South Side,-87.622039,41.855362,26842178
-34,Armour Square,-87.636859,41.849895,19204911
-35,Douglas,-87.607941,41.842896,20432232
-36,Oakland,-87.588694,41.823373,13142357
-37,Fuller Park,-87.632151,41.818697,17711701
-38,Grand Boulevard,-87.612765,41.811629,24234275
-39,Kenwood,-87.594156,41.805899,20747791
-40,Washington Park,-87.608252,41.791077,25456788
-41,Hyde Park,-87.592946,41.794146,24775916
-42,Woodlawn,-87.593982,41.775727,29247267
-43,South Shore,-87.583521,41.762715,29239707
-44,Chatham,-87.614836,41.749917,31074839
-45,Avalon Park,-87.599564,41.735563,19146623
-46,South Chicago,-87.546887,41.733628,28052238
-47,Burnside,-87.593601,41.714835,14958477
-48,Calumet Heights,-87.579574,41.723938,21454235
-49,Roseland,-87.667705,41.711234,30469563
-50,Pullman,-87.613464,41.692778,20047633
-51,South Deering,-87.556397,41.714197,26887546
-52,East Side,-87.526215,41.732088,18033774
-53,West Pullman,-87.647461,41.688449,32434988
-54,Riverdale,-87.638314,41.655741,32076863
-55,Hegewisch,-87.551619,41.679339,22589221
-56,Garfield Ridge,-87.780060,41.795423,32275850
-57,Archer Heights,-87.749604,41.780879,25229897
-58,Brighton Park,-87.692076,41.795834,20569834
-59,McKinley Park,-87.664828,41.792131,16851427
-60,New City,-87.660016,41.816879,27628754
-61,Bridgeport,-87.640164,41.842166,20923381
-62,Lower West Side,-87.679656,41.854865,23832491
-63,Back of the Yards,-87.658745,41.807065,22233481
-64,Armour Square,-87.636859,41.849895,19204911
-65,Marquette Park,-87.703877,41.761954,30532622
-66,Brighton Park,-87.692076,41.795834,20569834
-67,West Elsdon,-87.712156,41.784551,16836746
-68,Gage Park,-87.693285,41.773679,21165438
-69,Clearing,-87.764701,41.773901,23161687
-70,West Lawn,-87.742630,41.755951,18761362
-71,Chicago Lawn,-87.693039,41.731702,29038166
-72,West Englewood,-87.701863,41.752334,29816441
-73,Englewood,-87.667404,41.769863,29974172
-74,Greater Grand Crossing,-87.622910,41.776829,30097958
-75,Auburn Gresham,-87.662057,41.732537,33503867
-76,Chatham,-87.614836,41.749917,31074839
-77,Avalon Park,-87.599564,41.735563,19146623
+area_number,area_name
+1,Rogers Park
+2,West Ridge
+3,Uptown
+4,Lincoln Square
+5,North Center
+6,Lake View
+7,Lincoln Park
+8,Near North Side
+9,Edison Park
+10,Norwood Park
+11,Jefferson Park
+12,Forest Glen
+13,North Park
+14,Albany Park
+15,Portage Park
+16,Irving Park
+17,Dunning
+18,Montclare
+19,Belmont Cragin
+20,Hermosa
+21,Avondale
+22,Logan Square
+23,Humboldt Park
+24,West Town
+25,Austin
+26,West Garfield Park
+27,East Garfield Park
+28,Near West Side
+29,North Lawndale
+30,South Lawndale
+31,Lower West Side
+32,Loop
+33,Near South Side
+34,Armour Square
+35,Douglas
+36,Oakland
+37,Fuller Park
+38,Grand Boulevard
+39,Kenwood
+40,Washington Park
+41,Hyde Park
+42,Woodlawn
+43,South Shore
+44,Chatham
+45,Avalon Park
+46,South Chicago
+47,Burnside
+48,Calumet Heights
+49,Roseland
+50,Pullman
+51,South Deering
+52,East Side
+53,West Pullman
+54,Riverdale
+55,Hegewisch
+56,Garfield Ridge
+57,Archer Heights
+58,Brighton Park
+59,McKinley Park
+60,Bridgeport
+61,New City
+62,West Elsdon
+63,Gage Park
+64,Clearing
+65,West Lawn
+66,Chicago Lawn
+67,West Englewood
+68,Englewood
+69,Greater Grand Crossing
+70,Ashburn
+71,Auburn Gresham
+72,Beverly
+73,Washington Heights
+74,Mount Greenwood
+75,Morgan Park
+76,O'Hare
+77,Edgewater

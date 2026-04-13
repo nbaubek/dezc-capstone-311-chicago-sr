@@ -1,6 +1,10 @@
 # Capstone project for DE Zoomcamp 2026
 
-Paste short intro and description
+[![Course](https://img.shields.io/badge/COURSE-DE_ZOOMCAMP_2026-blueviolet?style=for-the-badge&logo=databricks&logoColor=white)](https://datatalks.club/docs/courses/data-engineering-zoomcamp/)
+
+This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
+
+**What it does:** Ingest [Chicago 311 service requests](https://data.cityofchicago.org/311/v6vf-nfxy) (~4.3M rows across 2024–2026) via a WAP-pattern pipeline into BigQuery with Apache Iceberg tables on GCS, then model the data in dbt for operational and SLA/equity dashboards in Looker.
 
 ---
 
@@ -228,7 +232,7 @@ Let's go ahead and discuss the tech stack.
 
 <br>
 
-A high-level view of how the architecture works:
+A high-level overview of how the architecture works:
 
 | Components | Implementation |
 | :--- | :--- |
@@ -238,11 +242,12 @@ A high-level view of how the architecture works:
 | **Metadata** | Stored by BigQuery in BigLake |
 
 
-
 ---
 
 
 ## Terraform setup
+
+All resources are located in the same region: US
 
 Infrastructure files:
 ```
@@ -361,26 +366,38 @@ You need to run `docker compose up -d` or `make container-up` command to trigger
 
 ## Data Ingestion
 
-### Architecture Overview
+### Ingestion Architecture Overview
 
 ```
 ┌─────────────┐     ┌─────────────────┐     ┌──────────────────────┐
-│  Socrata    │────▶│  Prefect Flows  │────▶│  BigQuery Iceberg   │
-│  API        │     │  (Orchestration)│     │  + BigLake Metastore│
+│  Socrata    │────▶│  Prefect Flows  │────▶│  Native BQ Table     │
+│  API        │     │  (Orchestration)│     │  (Staging/Audit)    │
 └─────────────┘     └─────────────────┘     └──────────┬───────────┘
                                                         │
                                                         ▼
-                                                ┌───────────────┐
-                                                │  GCS Bucket   │
-                                                │  (Parquet)    │
-                                                └───────────────┘
+                                         ┌──────────────────────────────┐
+                                         │  Data Quality Checks        │
+                                         │  (Audit: row count, nulls)  │
+                                         └──────────────┬───────────────┘
+                                                        │
+                                                        ▼
+                                         ┌──────────────────────────────┐
+                                         │  MERGE INTO Iceberg Table   │
+                                         │  (Deduplicated by SR#)      │
+                                         └──────────────┬───────────────┘
+                                                        │
+                                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            GCS Bucket (Parquet files)                        │
+│  ◄── BigLake Metastore (metadata/catalog) ◄── BigQuery (compute engine)     │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Common Concepts
 
 **BigLake Metastore:** BigQuery's native Iceberg catalog service. Manages Iceberg table metadata automatically without needing a third-party catalog. Tables are created and managed directly through BigQuery SQL.
 
-**Partitioning:** Year/month partitioning using derived `created_year` and `created_month` columns. Creates paths like `gs://bucket/year=2024/month=01/`.
+**Partitioning:** Year/month partitioning is derived from `created_year` and `created_month` columns. The partitioning is at metadata level, not file level.
 
 **WAP Pattern (Daily Flow):** BigQuery doesn't support Iceberg's native branching, so we use **audit table swap** pattern:
 1. Write new data to audit table
@@ -449,7 +466,7 @@ docker-compose exec flow-runner prefect deploy \
   flows/chicago_pipeline.py:daily_flow \
   --name daily-311 \
   --pool chicago-311-pool \
-  --cron "0 6 * * *"  # 6 AM
+  --cron "0 0 * * *"  # 00:00 (midnight)
 ```
 
 **Verify schedule via UI:** Open http://localhost:4200 → Deployments → daily-311 → Schedule tab
@@ -462,7 +479,9 @@ docker-compose exec flow-runner prefect deploy \
 | Manual via UI | Open http://localhost:4200 |
 | Ad-hoc via Docker | `docker-compose exec flow-runner python -c "from flows.chicago_pipeline import yearly_flow; yearly_flow(2026)"` |
 
-**Important:** Only run 1 flow at a time. Concurrent writes cause `CommitFailedException`.
+**Important:** 
++ Only run 1 flow at a time. Concurrent writes cause `CommitFailedException`. 
++ Also, if your run has failed or encountered exceptions, cancel it manually immediately. Only then create new runs.
 
 ---
 
@@ -477,7 +496,7 @@ docker-compose exec flow-runner prefect deploy \
 docker-compose exec flow-runner python -c "from flows.chicago_pipeline import yearly_flow; yearly_flow(2026)"
 ```
 
-**Performance:** ~25-30 minutes per year. 1.9M+ rows.
+**Performance:** ~25 minutes per year. 1.9M+ rows.
 
 ---
 
@@ -490,21 +509,23 @@ docker-compose exec flow-runner python -c "from flows.chicago_pipeline import ye
 **WAP Cycle (BigQuery Audit Table Swap):**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Setup:   Ensure BigQuery dataset, tables, and audit table exist │
-│ 2. Clear:   Clear audit table for new data                      │
-│ 3. Write:    Append last 24h data to audit table (3-4K rows)   │
-│ 4. Audit:    Validate audit table (row count, null checks)     │
-│ 5. Merge:    Insert audit data into main table (deduplicated)   │
-│ 6. Cleanup:  Clear audit table for next run                     │
-└─────────────────────────────────────────────────────────────────┘
-           ✅ Pass: Main updated   ❌ Fail: Audit table cleared
+┌──────────────────────────────────────────────────────────────────┐
+│ 1. Setup:    Ensure BigQuery dataset, Iceberg table, and staging │
+│              table exist                                          │
+│ 2. Write:    WRITE_TRUNCATE last 24h data to staging table      │
+│              (overwrites staging table; 3-4K rows typical)        │
+│ 3. Audit:    Validate staging table (row count ≥ min, no nulls)  │
+│ 4. Merge:    Deduplicated INSERT into Iceberg via MERGE           │
+│ 5. Cleanup:  Clear staging table (only on success)               │
+└──────────────────────────────────────────────────────────────────┘
+           ✅ Pass: Iceberg updated, staging cleared
+           ❌ Fail: Staging cleared, Iceberg untouched
 ```
 
 **Audit Checks:**
 - Row count ≥ minimum (default 1)
 - No null `created_date` values
-- Date-filtered validation (avoids reading entire table)
+- Note: Staging table is truncated on each write, so audit validates all rows currently in staging
 
 **Example:**
 ```python
@@ -524,9 +545,8 @@ daily_flow()  # Automatically uses 24h lookback on last_modified_date
 - `start_date`: YYYY-MM-DD (inclusive)
 - `end_date`: YYYY-MM-DD (exclusive)
 - `chunk_months`: Months per chunk, default 1
-- `date_field`: Which date field to filter on (default "created_date"). Use "last_modified_date" for correction backfills.
 
-**Note:** Writes directly to main table (no WAP). Can filter on `created_date` for new data or `last_modified_date` for corrections.
+**Note:** Uses WAP like other flows.
 
 **Example:**
 ```python
@@ -534,9 +554,9 @@ from flows.chicago_pipeline import backfill_flow
 # One month of new requests
 backfill_flow("2026-03-01", "2026-04-01")
 # Quarterly chunks
-backfill_flow("2024-01-01", "2025-01-01", chunk_months=3)
+backfill_flow("2024-01-01", "2025-01-01", chunk_months=1) # 1 month is probably enough for most cases
 # Correction backfill - all changes to existing records in a period
-backfill_flow("2026-03-01", "2026-04-01", date_field="last_modified_date")
+backfill_flow("2026-03-01", "2026-04-01")
 ```
 
 ---
@@ -559,7 +579,7 @@ This [link](https://dev.socrata.com/foundry/data.cityofchicago.org/v6vf-nfxy) ha
 
 ### **Data Schema**
 
-*Raw Socrata API Response (all 36 columns are TEXT/STRING):*
+*Raw Socrata API Response (all 35 columns are TEXT/STRING):*
 
 | Column | Description |
 |--------|-------------|
@@ -607,6 +627,7 @@ This [link](https://dev.socrata.com/foundry/data.cityofchicago.org/v6vf-nfxy) ha
 
 **Schema Changes After Polars Type Casting:**
 
+Total number of columns: 35
 
 | Column | Original Type | After Casting | Notes |
 |--------|---------------|----------------|-------|
@@ -680,11 +701,11 @@ This [link](https://dev.socrata.com/foundry/data.cityofchicago.org/v6vf-nfxy) ha
 | Year | Rows | Notes |
 |------|------|-------|
 | 2024 | 1,913,929 | Full year |
-| 2025 | 1,960,595 | Full year |
-| 2026 | 498,531-and counting | Jan–Apr only |
-| **Total** | **4,373,055** | 291 MiB compressed |
+| 2025 | 1,860,595 | Full year |
+| 2026 | 549,246 | Jan–Apr (partial) |
+| **Total** | **4,323,770** | As of 2026-04-13 |
 
-**Storage Efficiency:** ~4.4M records in Parquet = 291 MiB. Equivalent CSV would be 8-10x larger (~2.3–2.9 GB).
+**Storage Efficiency:** Parquet compression reduces storage ~8-10x vs raw CSV. Exact GCS storage figures can be obtained via `gcloud storage du gs://<bucket>/chicago_311_lakehouse/`.
 
 ---
 
@@ -712,3 +733,13 @@ For every piece of code and the architecture as a whole, ask yourself:
 
 
 
+## Some possible improvements for this project
+
+1. Use [Secret Manager](https://cloud.google.com/security/products/secret-manager) instead of `.env` file
+2. Use CI/CD
+3. Use Prefect Cloud instead of Docker setup
+4. Use dbt Cloud
+5. Use RBAC
+6. Use VPC for GCP resources
+7. Optimize Apache Iceberg, e.g. compaction
+7. ...

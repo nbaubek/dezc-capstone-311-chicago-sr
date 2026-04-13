@@ -4,15 +4,15 @@
 packages:
   # dbt utilities (commonly used helper functions)
   - package: dbt-labs/dbt_utils
-    version: 1.3.0
+    version: 1.3.3
 
   # Data quality expectations
-  - package: calogica/dbt_expectations
-    version: 0.10.3
+  - package: metaplane/dbt_expectations
+    version: 0.10.4
 
   # Code generation for existing databases
   - package: dbt-labs/codegen
-    version: 0.13.1
+    version: 0.14.0
 
 # NOTE: dbt-bigquery adapter is installed via pip, not via packages.yml
 # Install with: pip install dbt-bigquery
