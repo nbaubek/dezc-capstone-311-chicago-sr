@@ -1,0 +1,149 @@
+# Source definitions for Chicago 311 data
+# This defines the BigQuery Iceberg table as a source for dbt
+
+version: 2
+
+sources:
+  - name: ice_lakehouse
+    description: "Apache Iceberg lakehouse data from GCS managed by BigQuery BigLake Metastore"
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: "{{ env_var('BIGQUERY_DATASET_ID', 'chicago_311_lakehouse') }}"
+    tables:
+      - name: service_requests
+        description: "Chicago 311 service requests from Socrata API, stored as Iceberg on GCS"
+
+        columns:
+          # Primary key
+          - name: service_request_number
+            description: "Unique identifier for the service request (SR24-00000001 format)"
+            tests:
+              - unique
+              - not_null
+
+          # Request type info
+          - name: sr_type
+            description: "Type of service request (e.g., Pothole Repair)"
+            tests:
+              - not_null
+
+          - name: sr_short_code
+            description: "Short code for the service type"
+
+          # Status and ownership
+          - name: current_status
+            description: "Current status of the request (Open, Completed, etc.)"
+            tests:
+              - not_null
+
+          - name: owner_department
+            description: "Department responsible for the request"
+            tests:
+              - not_null
+
+          - name: origin
+            description: "Source of the request (e.g., 311 Center, Mobile App)"
+
+          # Dates
+          - name: created_date
+            description: "Date when the service request was created"
+            tests:
+              - not_null
+
+          - name: last_modified_date
+            description: "Last modification timestamp for incremental updates"
+            tests:
+              - not_null
+
+          - name: closed_date
+            description: "Date when the service request was closed (null if still open)"
+
+          # Geography
+          - name: street_address
+            description: "Street address of the request location"
+
+          - name: zip_code
+            description: "ZIP code of the request location"
+
+          - name: street_number
+            description: "Street number component"
+
+          - name: street_direction
+            description: "Street direction (N, S, E, W)"
+
+          - name: street_name
+            description: "Street name component"
+
+          - name: street_type
+            description: "Street type (St, Ave, Blvd, etc.)"
+
+          - name: community_area
+            description: "Chicago community area (1-77 neighborhoods)"
+            tests:
+              - not_null
+
+          - name: ward
+            description: "Chicago ward (1-50 political districts)"
+
+          - name: police_sector
+            description: "Police sector"
+
+          - name: police_district
+            description: "Police district"
+
+          - name: police_beat
+            description: "Police beat"
+
+          - name: precinct
+            description: "Precinct"
+
+          - name: latitude
+            description: "Latitude coordinate"
+
+          - name: longitude
+            description: "Longitude coordinate"
+
+          - name: x_coordinate
+            description: "X coordinate (Illinois State Plane)"
+
+          - name: y_coordinate
+            description: "Y coordinate (Illinois State Plane)"
+
+          # Flags
+          - name: duplicate
+            description: "Flag indicating if this is a duplicate request"
+
+          - name: legacy_record
+            description: "Flag indicating if this is a legacy record (pre-2018)"
+
+          # Derived temporal columns
+          - name: created_year
+            description: "Year when the service request was created"
+            tests:
+              - not_null
+
+          - name: created_month
+            description: "Month when the service request was created (1-12)"
+            tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  min: 1
+                  max: 12
+
+          - name: created_hour
+            description: "Hour of day when request was created (0-23)"
+
+          - name: created_day_of_week
+            description: "Day of week when request was created (0=Monday, 6=Sunday)"
+
+          # Additional fields
+          - name: created_department
+            description: "Department that created the request"
+
+          - name: electrical_district
+            description: "Electrical district"
+
+          - name: electricity_grid
+            description: "Electricity grid identifier"
+
+          - name: parent_sr_number
+            description: "Parent service request number (for linked requests)"

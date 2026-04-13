@@ -1,0 +1,20 @@
+seeds:
+  - name: community_areas
+    description: "Description of community_areas.csv seeds file"
+    columns:
+      - name: area_number
+        tests:
+          - unique
+          - not_null
+      - name: area_name
+        tests:
+          - unique
+          - not_null
+
+      - name: latitude
+        tests:
+          - not_null
+
+      - name: longitude
+        tests:
+          - not_null
