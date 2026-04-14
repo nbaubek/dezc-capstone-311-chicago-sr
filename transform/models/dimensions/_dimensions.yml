@@ -1,6 +1,54 @@
 version: 2
 
 models:
+  - name: dim_date
+    description: >
+      Date dimension table for the Chicago 311 data warehouse. One row per day from 2024-01-01
+      to 2026-12-31. SCD Type 0 — dates are immutable by definition. Includes Illinois state
+      holidays and business-day flags needed for SLA resolution time calculations (BR-004).
+    config:
+      tags: ['dimensions']
+
+    columns:
+      - name: date_day
+        description: "The calendar date (YYYY-MM-DD). Primary key of this dimension."
+        tests:
+          - unique
+          - not_null
+
+      - name: date_year
+        description: "Year extracted from date_day (e.g., 2024)."
+
+      - name: date_month
+        description: "Month number (1-12) extracted from date_day."
+
+      - name: month_name
+        description: "Full month name (e.g., 'January', 'February')."
+
+      - name: day_of_month
+        description: "Day of the month (1-31)."
+
+      - name: day_of_week_num
+        description: "Day of week as a number. BigQuery convention: 1=Sunday through 7=Saturday."
+
+      - name: day_of_week_name
+        description: "Full day of week name (e.g., 'Monday', 'Saturday')."
+
+      - name: date_quarter
+        description: "Fiscal quarter number (1-4)."
+
+      - name: day_of_year
+        description: "Day of year (1-366), useful for trend analysis."
+
+      - name: is_weekend
+        description: "True if day_of_week_num is 1 (Sunday) or 7 (Saturday). Used in BR-004 business-day exclusion."
+
+      - name: is_illinois_holiday
+        description: "True if the date is an official Illinois state holiday. Covers all holidays within the project scope (2024-2026). Used in BR-004 business-day exclusion."
+
+      - name: is_business_day
+        description: "True only when is_weekend=false AND is_illinois_holiday=false. The master flag for BR-004 business-day resolution time calculations."
+
   - name: dim_geography
     description: >
       Geographical dimension table for Chicago 311 service requests. 

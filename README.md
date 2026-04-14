@@ -1,4 +1,4 @@
-# Capstone project for DE Zoomcamp 2026
+# Capstone project for DE Zoomcamp 2026: Hybrid Lakehouse for 311 Chicago Service Requests (2018-now) data
 
 [![Course](https://img.shields.io/badge/COURSE-DE_ZOOMCAMP_2026-blueviolet?style=for-the-badge&logo=databricks&logoColor=white)](https://datatalks.club/docs/courses/data-engineering-zoomcamp/)
 

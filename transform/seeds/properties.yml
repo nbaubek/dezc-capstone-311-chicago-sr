@@ -1,6 +1,7 @@
 seeds:
+  # Source of community areas geography data: https://data.cityofchicago.org/Facilities-Geographic-Boundaries/Boundaries-Community-Areas/igwz-8jzy/about_data
   - name: community_areas
-    description: "Description of community_areas.csv seeds file"
+    description: "Chicago's 77 community areas with geographic boundaries and metadata"
     columns:
       - name: area_number
         tests:
@@ -10,11 +11,23 @@ seeds:
         tests:
           - unique
           - not_null
-
-      - name: latitude
+      - name: side
         tests:
           - not_null
+      - name: the_geom
+        description: "MULTIPOLYGON WKT geometry for community area boundary"
+      - name: shape_area
+        description: "Area of the community boundary in square degrees"
+      - name: shape_len
+        description: "Perimeter length of the community boundary"
 
-      - name: longitude
+  - name: sla_targets
+    description: "SLA targets and request type category groupings"
+    columns:
+      - name: sr_type
         tests:
+          - unique
           - not_null
+      - name: category
+      - name: sla_days
+      - name: sla_target_source

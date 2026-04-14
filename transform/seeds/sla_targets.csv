@@ -1,20 +1,111 @@
-sr_type,target_days,category
-"Abandoned Vehicle",7,Infrastructure
-"Garbage Cart Black Maintenance",3,Sanitation
-"Garbage Cart Blue Maintenance",3,Sanitation
-"Graffiti Removal",7,Sanitation
-"Pothole in Street",7,Infrastructure
-"Rodent Baiting / Rat Request",5,Sanitation
-"Street Light - All Out",2,Infrastructure
-"Street Light - One Out",3,Infrastructure
-"Tree Debris",7,Parks
-"Tree Trim Request",14,Parks
-"Water Leak",1,Infrastructure
-"Abandoned Building Complaint",14,Infrastructure
-"Street Light - Dim/Off",3,Infrastructure
-"Sanitation Code Violation",7,Sanitation
-"Vacant/Abandoned Building",14,Infrastructure
-"Traffic Signal Out",1,Infrastructure
-"Street Light - Intermittent Operation",3,Infrastructure
-"Rodent Baiting",5,Sanitation
-"Tree Emergency",1,Parks
+sr_type,target_days,priority,sla_target_source
+"311 INFORMATION ONLY CALL",1,Low,Informational — no resolution required
+"Abandoned Vehicle Complaint",7,High,City service standard estimate
+"Aircraft Noise Complaint",7,Low,Quality of life complaint standard
+"Alley Light Out Complaint",3,Medium,Infrastructure lighting standard
+"Alley Pothole Complaint",7,High,Infrastructure repair standard
+"Alley Sewer Inspection Request",7,Medium,Infrastructure inspection SLA
+"Animal In Trap Complaint",3,Medium,Animal control response standard
+"Bee/Wasp Removal",3,Medium,Public health baseline assumption
+"Bicycle Request/Complaint",7,Medium,Transportation service standard
+"Blue Recycling Cart",3,Medium,Sanitation service standard
+"Buildings - Plumbing Violation",14,Low,Inspection backlog estimate
+"Building Violation",14,Low,Inspection backlog estimate
+"Bungalow/Vintage Home Information Request",7,Low,Information request standard
+"Business Complaints",14,Low,Consumer protection standard
+"Cab Feedback",7,Low,Service feedback logging standard
+"Cable TV Complaint",14,Low,Third-party vendor backlog assumption
+"Check for Leak",1,Critical,Emergency infrastructure response
+"City Vehicle Sticker Violation",7,Medium,Compliance enforcement standard
+"Clean and Green Program Request",30,Low,Urban beautification program standard
+"Clean Vacant Lot Request",30,Low,Urban beautification program standard
+"Commercial Fire Safety Inspection Request",14,Medium,Inspection backlog estimate
+"Consumer Fraud Complaint",30,Low,Consumer protection standard
+"Consumer Retail Business Complaint",14,Low,Consumer protection standard
+"Coyote Interaction Complaint",7,Medium,Animal control response standard
+"Dead Animal Pick-Up Request",3,Medium,Public health baseline assumption
+"Dead Bird",1,Critical,Public health Sanitation response
+"Divvy Bike Parking Complaint",7,Medium,Transportation service standard
+"E-Scooter",7,Low,Micromobility standard
+"E-Scooter Parking Complaint",7,Medium,Transportation service standard
+"Extreme Weather Notification",1,Low,Informational notification standard
+"Finance Parking Code Enforcement Review",14,Low,Administrative review standard
+"Fly Dumping Complaint",7,Medium,Environmental enforcement standard
+"Garbage Cart Maintenance",3,Medium,Sanitation service standard
+"Graffiti Removal Request",5,Medium,Urban cleanup benchmark assumption
+"Home Buyer Program Info Request",14,Low,Information request standard
+"Ice and Snow Removal Request",1,Critical,Weather emergency response
+"Inaccurate Fuel Pump Complaint",14,Low,Consumer protection standard
+"Inaccurate Retail Scales Complaint",14,Low,Consumer protection standard
+"Inspect Public Way Request",14,Medium,Inspection backlog estimate
+"Lead Inspection Request",7,Medium,Health inspection standard
+"Licensed Pharmaceutical Representative Complaint",30,Low,Regulatory compliance standard
+"Liquor Establishment Complaint",14,Low,Regulatory enforcement standard
+"Low Water Pressure Complaint",1,Critical,Emergency infrastructure response
+"Missed Garbage Pick-Up Complaint",3,Medium,Sanitation service standard
+"No Air Conditioning",1,Critical,Emergency health and safety concern
+"No Building Permit and Construction Violation",14,Low,Inspection backlog estimate
+"No Solicitation Complaint",7,Low,Regulatory enforcement standard
+"No Water Complaint",1,Critical,Emergency infrastructure response
+"Nuisance Animal Complaint",7,Medium,Animal control response standard
+"Open Fire Hydrant Complaint",1,Critical,Emergency public safety hazard
+"Outdated Merchandise Complaint",14,Low,Consumer protection standard
+"Paid sick leave violation",30,Low,Regulatory compliance standard
+"Pavement Cave-In Inspection Request",1,Critical,Emergency infrastructure response
+"Petcoke Dust Complaint",7,Medium,Environmental enforcement standard
+"Pet Wellness Check Request",7,Medium,Animal control response standard
+"Porch Inspection Request",14,Medium,Inspection backlog estimate
+"Pothole in Street Complaint",7,High,Infrastructure repair standard
+"Protected Bike Lane - Debris Removal",7,Medium,Transportation service standard
+"Public Vehicle/Valet Complaint",7,Medium,Transportation service standard
+"Pushcart Food Vendor Complaint",7,Medium,Regulatory enforcement standard
+"Recycling Inspection Request",14,Medium,Inspection backlog estimate
+"Recycling Pick Up",3,Medium,Sanitation service standard
+"Renters and Foreclosure Complaint",30,Low,Housing regulation standard
+"Report an Injured Animal",1,Critical,Animal control emergency response
+"Restaurant Complaint",14,Low,Health inspection standard
+"Ridesharing Complaint",7,Low,Transportation service standard
+"Rodent Baiting/Rat Complaint",5,Medium,Public health baseline assumption
+"Sanitation Code Violation",7,Medium,Inspection and enforcement SLA
+"Sewer Cave-In Inspection Request",1,Critical,Emergency infrastructure response
+"Sewer Cleaning Inspection Request",7,Medium,Infrastructure maintenance standard
+"Shared Cost Sidewalk Program Request",30,Low,Capital improvement program standard
+"Shared Housing/Vacation Rental Complaint",14,Low,Housing regulation standard
+"Sidewalk Café/Outdoor Dining Complaint",14,Low,Regulatory enforcement standard
+"Sidewalk Inspection Request",14,Medium,Inspection backlog estimate
+"Sign Repair Request - All Other Signs",14,Low,Sign repair backlog estimate
+"Sign Repair Request - Do Not Enter Sign",1,Critical,Public safety critical sign repair
+"Sign Repair Request - One Way Sign",1,Critical,Public safety critical sign repair
+"Sign Repair Request - Stop Sign",1,Critical,Public safety critical sign repair
+"Smokeless Tobacco at Sports Event Complaint",7,Low,Regulatory enforcement standard
+"Snow - Object/Dibs Removal Request",1,Critical,Weather emergency response
+"Snow Removal - Protected Bike Lane or Bridge Sidewalk",1,Critical,Weather emergency response
+"Snow – Uncleared Sidewalk Complaint",1,Critical,Weather emergency response
+"Stray Animal Complaint",7,Medium,Animal control response standard
+"Street Cleaning Request",7,Medium,Recurring maintenance schedule
+"Street Light On During Day Complaint",3,Medium,Infrastructure lighting standard
+"Street Light Out Complaint",2,Critical,Emergency infrastructure outage
+"Street Light Pole Damage Complaint",3,Medium,Infrastructure lighting standard
+"Street Light Pole Door Missing Complaint",3,Medium,Infrastructure lighting standard
+"Submerged Divvy or Lime Device in the Lake/River",1,Critical,Public safety hazard response
+"Tobacco - General Complaint",7,Low,Regulatory enforcement standard
+"Tobacco - Sale to Minors Complaint",14,Low,Regulatory enforcement standard
+"Traffic Signal Out Complaint",1,Critical,Public safety critical signal outage
+"Tree Debris Clean-Up Request",7,Medium,Storm cleanup SLA assumption
+"Tree Emergency",1,Critical,Emergency hazard response assumption
+"Tree Planting Request",30,Low,Parks forestry backlog estimate
+"Tree Removal Inspection",14,Medium,Parks inspection backlog estimate
+"Tree Trim Request (NO LONGER BEING ACCEPTED)",14,Low,Historical forestry backlog estimate
+"Vacant/Abandoned Building Complaint",14,High,Inspection backlog estimate
+"Vehicle Parked in Bike Lane Complaint",7,Medium,Transportation enforcement standard
+"Viaduct Light Out Complaint",3,Medium,Infrastructure lighting standard
+"Vicious Animal Complaint",1,Critical,Public safety emergency response
+"Wage Complaint",30,Low,Regulatory compliance standard
+"Water in Basement Complaint",1,Critical,Emergency infrastructure response
+"Water Lead Test Kit Request",1,Critical,Emergency health and safety concern
+"Water Lead Test Visit Request",1,Critical,Emergency health and safety concern
+"Water On Street Complaint",1,Critical,Immediate safety hazard response
+"Water Quality Concern",1,Critical,Emergency health and safety concern
+"Weed Removal Request",7,Medium,Urban beautification standard
+"Wire Basket Request",14,Medium,Infrastructure maintenance standard
+"Yard Waste Pick-Up Request",3,Medium,Sanitation service standard
