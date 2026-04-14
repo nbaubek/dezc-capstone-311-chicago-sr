@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: dim_geography
+    description: >
+      Geographical dimension table for Chicago 311 service requests. 
+      This model extracts the unique combinations of micro-administrative boundaries 
+      (Wards, Police Districts, Beats) from the raw service requests and enriches them 
+      with official spatial Multipolygons, macro-regions (City Sides), and density metrics 
+      from the City of Chicago data portal.
+    
+    config:
+      tags: ['dimensions', 'spatial']
+
+    columns:
+      - name: community_area_id
+        description: "The official numeric ID (1-77) representing a Chicago Community Area."
+        tests:
+          - not_null
+
+      - name: community_area_name
+        description: "The human-readable text name of the Community Area (e.g., 'Rogers Park', 'Loop')."
+
+      - name: city_side
+        description: "The macro-region of Chicago the community area belongs to (e.g., 'North', 'South', 'West'). Useful for high-level dashboard aggregations."
+
+      - name: ward
+        description: "The Chicago City Council district associated with the service request."
+
+      - name: police_sector
+        description: "The subset of a Police District used by the Chicago Police Department for resource allocation."
+
+      - name: police_district
+        description: "The geographic subdivision used by the Chicago Police Department."
+
+      - name: police_beat
+        description: "The smallest geographic area of patrol used by the Chicago Police Department."
+
+      - name: precinct
+        description: "The electoral precinct associated with the location."
+
+      - name: area_boundary
+        description: "A native BigQuery GEOGRAPHY object (Multipolygon) representing the exact borders of the Community Area. Optimized for BI choropleth mapping."
+
+      - name: shape_area
+        description: "The total spatial area of the Community Area boundary, measured in square feet."
+
+      - name: shape_length
+        description: "The total perimeter length of the Community Area boundary, measured in feet."
+
+      - name: dbt_updated_at
+        description: "Audit timestamp indicating exactly when this dimension record was processed by dbt."

@@ -4,7 +4,9 @@
 
 This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 
-**What it does:** Ingest [Chicago 311 service requests](https://data.cityofchicago.org/311/v6vf-nfxy) (~4.3M rows across 2024–2026) via a WAP-pattern pipeline into BigQuery with Apache Iceberg tables on GCS, then model the data in dbt for operational and SLA/equity dashboards in Looker.
+**What it does:** Ingest [Chicago 311 service requests](https://data.cityofchicago.org/311/v6vf-nfxy) (~4.4M rows across 2024–2026) via a WAP-pattern pipeline into BigQuery with Apache Iceberg tables on GCS, then model the data in dbt for operational and SLA/equity dashboards in Looker.
+
+![img](311-banner-image.png)
 
 ---
 
@@ -215,19 +217,22 @@ Let's go ahead and discuss the tech stack.
 ## Stack and Requirements
 
 + **UV** as a package manager
++ **Polars (Processing Layer)**:
+  * **Primary Actions**: API extraction and immediately loading data into Polars dataframes.
+  * **Transformation**: Immediate in-memory type casting (e.g., casting datetime fields, numeric types).
+  * **Constraint**: *Crucially*, this entire step is **all in-memory**, with no persistent storage on disk before it reaches the data lakehouse.
 + **Docker Compose** for containerized setup
-+ **Prefect Cloud (free tier)** for workflow orchestration
++ **Prefect** via Docker for workflow orchestration
 + **Apache Iceberg via BigLake/BigQuery/GCS** for Data Lakehouse capabilities
-+ **GCP resources: GCS, BigQuery with BigLake, Looker** 
++ **GCP resources: GCS, BigQuery with BigLake** 
   + **GCS** for storage
   + **BigQuery** as compute engine for Iceberg tables
   + **BigLake** for Iceberg catalog
-  + **Looker** for dashboarding
++ **Metabase** for dashboarding
 + **Terraform** for GCP infrastructure management
 + **dbt** for data modeling and transformation, and data quality checks
 + **Great Expectations** for data quality checks
 + **Make** for easier management of the project
-+ **Github CI/CD** for automating the building, testing, and deployment of code changes and thereby faster code releases
 + **mypy** for type checking, **pytest** for Python testing, **sqlfluff** for testing SQL in dbt models, and **ruff** as Python linter and formatter
 
 <br>
@@ -368,30 +373,7 @@ You need to run `docker compose up -d` or `make container-up` command to trigger
 
 ### Ingestion Architecture Overview
 
-```
-┌─────────────┐     ┌─────────────────┐     ┌──────────────────────┐
-│  Socrata    │────▶│  Prefect Flows  │────▶│  Native BQ Table     │
-│  API        │     │  (Orchestration)│     │  (Staging/Audit)    │
-└─────────────┘     └─────────────────┘     └──────────┬───────────┘
-                                                        │
-                                                        ▼
-                                         ┌──────────────────────────────┐
-                                         │  Data Quality Checks        │
-                                         │  (Audit: row count, nulls)  │
-                                         └──────────────┬───────────────┘
-                                                        │
-                                                        ▼
-                                         ┌──────────────────────────────┐
-                                         │  MERGE INTO Iceberg Table   │
-                                         │  (Deduplicated by SR#)      │
-                                         └──────────────┬───────────────┘
-                                                        │
-                                                        ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                            GCS Bucket (Parquet files)                        │
-│  ◄── BigLake Metastore (metadata/catalog) ◄── BigQuery (compute engine)     │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+![img1](sim-image.png) ![img2](sim-image-failed.png)
 
 ### Common Concepts
 
