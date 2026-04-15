@@ -17,6 +17,8 @@ Quick start:
 
 ## Business Scenario and Data Product
 
+Chicago receives thousands of service requests daily across 77 community areas and 50 political wards. City leadership faces critical questions.
+
 ***Simulated stakeholder interview***
 
 > "*We get thousands of service requests every day across the city. Our biggest problems are: we don't know which departments are falling behind until it's already a political problem, ward aldermen call us asking why their neighborhoods wait longer for potholes to be fixed than other wards, and we have no early warning system for when we're about to breach our response commitments. We also get audited annually and have to manually pull spreadsheets to prove compliance. It takes days.*"
@@ -162,7 +164,7 @@ Distinct `sr_type` values from the source, enriched with our seeded SLA targets 
 
 3. **`dim_department`**
 Distinct owner_department values enriched from our seed with display names and bureau groupings. Departments occasionally get renamed or reorganized in real city governments.
-    + **Type: SCD Type 2** — this is the one dimension worth tracking history on. If "CDOT - Department of Transportation" gets renamed mid-year, you want historical requests to still show the old name so our trend analysis isn't broken. In practice for a 2-year dataset this probably won't happen, but modeling it as Type 2 demonstrates the pattern correctly.
+    + **Type: SCD Type 1** — this is the one dimension worth tracking history on. If "CDOT - Department of Transportation" gets renamed mid-year, you want historical requests to still show the old name so our trend analysis isn't broken. In practice for a 2-year dataset this probably won't happen, but modeling it as Type 2 demonstrates the pattern correctly.
 
 4. **`dim_geography`**
 This one is more interesting than it looks. The source has multiple geographic grains on every row: 
@@ -212,6 +214,7 @@ created → assigned → in progress → closed
 ```
 
 The row gets updated as the request moves through its lifecycle. That's the definition of an accumulating snapshot.
+
 
 ---
 
@@ -368,8 +371,11 @@ You need to run `docker compose up -d` or `make container-up` command to trigger
 
 ## AI assistant setup (If you're using Claude Code or other AI assistants)
 
+I have tried to use `CLAUDE.md` to define general instructions for this project.
+
 ### MCP Servers
 
+MCP servers I installed for this project:
 + Prefect MCP
 + Polars MCP
 + dbt MCP
@@ -702,6 +708,25 @@ Total number of columns: 35
 
 ---
 
+## Working with dbt models and seeds
+
+The ingested into Iceberg table data serves as the source for downstream dbt models and marts.
+
+
+**How to deploy seeds**
+
+As per convention, seeds are stored in `transform/seeds/` directory. There is a `property.yml` file that describes every seed.
+Once you save that file, you need to tell dbt to push it into BigQuery before you can build your dimension.
+
+Run this specific sequence in your terminal:
+
+dbt seed --select department_metadata (This uploads the CSV into BigQuery as a native table).
+
+dbt run --select dim_department (This will now execute flawlessly, picking up the seed table and performing the LEFT JOIN).
+
+
+---
+
 ## Testing and development dependencies
 
 mypy
@@ -729,10 +754,13 @@ For every piece of code and the architecture as a whole, ask yourself:
 ## Some possible improvements for this project
 
 1. Use [Secret Manager](https://cloud.google.com/security/products/secret-manager) instead of `.env` file
+  + Instead of injecting env vars manually, you use your cloud provider's secrets manager:
+    + GCP → Secret Manager
+      + Your CI/CD pipeline pulls secrets at deploy/run time — you never store them in the repo or image.
 2. Use CI/CD
 3. Use Prefect Cloud instead of Docker setup
 4. Use dbt Cloud
 5. Use RBAC
 6. Use VPC for GCP resources
-7. Optimize Apache Iceberg, e.g. compaction
-7. ...
+7. Optimize Apache Iceberg, e.g. compaction (at a later stage)
+8. ...

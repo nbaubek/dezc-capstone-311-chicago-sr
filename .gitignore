@@ -54,3 +54,5 @@ __pycache__/
 Thumbs.db
 
 logs/
+
+transform/profiles.yml

@@ -97,13 +97,15 @@ services:
     environment:
       PREFECT_API_URL: http://prefect-server:4200/api
       PREFECT_HOME: /home/prefectuser/.prefect
-      # Optional: Add any environment variables your flows need
-      # PREFECT_LOGGING_LEVEL: DEBUG
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/application_default_credentials.json
+      DBT_PROFILES_DIR: /app/transform
     command: prefect worker start --pool chicago-311-pool
     restart: on-failure
     volumes:
       # Mount flows directory for hot-reloading during development
       - ./flows:/app/flows:ro
+      # Mount dbt project for direct dbt CLI access
+      - ./transform:/app/transform
       # Mount GCP service account key if needed (uncomment and update path)
       - ./application_default_credentials.json:/app/secrets/application_default_credentials.json:ro
     healthcheck:
