@@ -104,7 +104,6 @@ services:
     volumes:
       # Mount flows directory for hot-reloading during development
       - ./flows:/app/flows:ro
-      - ./.pyiceberg.yaml:/app/.pyiceberg.yaml:ro
       # Mount GCP service account key if needed (uncomment and update path)
       - ./application_default_credentials.json:/app/secrets/application_default_credentials.json:ro
     healthcheck:

@@ -33,7 +33,6 @@ RUN uv sync --frozen --no-dev
 
 # Copy application code
 COPY flows/ ./flows/
-COPY .pyiceberg.yaml ./
 
 # Create a non-root user for running flows
 RUN useradd -m -u 1000 prefectuser && \

@@ -133,8 +133,9 @@ Thumbs.db
 ### Branching and Commit Practices
 
 1. **Never commit directly to `main`** - always use feature branches
-2. **Always ask for confirmation before pushing** - show what will be pushed
+2. **Always ask for confirmation before committing and pushing** - show what will be committed and pushed
 3. **Review the diff** before committing:
+
    ```bash
    git diff --staged
    ```

@@ -8,6 +8,11 @@ This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 
 ![img](311-banner-image.png)
 
+Quick start:
++ `make infra-up` 
++ `make sync-env`
++ `make container-up`
+
 ---
 
 ## Business Scenario and Data Product
@@ -401,6 +406,8 @@ flows/
 
 ### Running the flows
 
+Ensure Terraform infra is up before going forward with these steps.
+
 **1. Start Infrastructure:**
 ```bash
 docker-compose up -d  # Starts Prefect server, worker, Redis, Postgres
@@ -413,6 +420,7 @@ docker-compose exec flow-runner prefect work-pool create chicago-311-pool --type
 ```
 
 **3. Register Deployments:**
+
 ```bash
 # Daily flow (scheduled at midnight UTC)
 docker-compose exec flow-runner prefect deploy \
@@ -443,6 +451,9 @@ docker-compose exec flow-runner prefect deploy \
 | Every 6 hours | `0 */6 * * *` |
 
 **To update an existing deployment's schedule:**
+
+For daily flow:
+
 ```bash
 docker-compose exec flow-runner prefect deploy \
   flows/chicago_pipeline.py:daily_flow \
