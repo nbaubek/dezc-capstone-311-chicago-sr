@@ -27,8 +27,8 @@ community_area_seed as (
         ST_GEOGFROMTEXT(the_geom) as area_boundary,
         
         -- Strip out the string commas from the CSV before casting to Float
-        cast(replace(shape_area, ',', '') as FLOAT64) as shape_area,
-        cast(replace(shape_len, ',', '') as FLOAT64) as shape_length
+        cast(replace(cast(shape_area as STRING), ',', '') as FLOAT64) as shape_area,
+        cast(replace(cast(shape_len as STRING), ',', '') as FLOAT64) as shape_length
         
     from {{ ref('community_areas') }}
 ),

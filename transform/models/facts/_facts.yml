@@ -1,0 +1,174 @@
+version: 2
+
+models:
+  - name: fct_service_requests
+    description: |
+      Core accumulating snapshot fact table for Chicago 311 service requests. One row per
+      service request ticket, tracking lifecycle from creation through closure. Enriched
+      with surrogate keys to all dimension tables and SLA performance flags computed at
+      query time against dim_request_type targets. Designed for daily incremental loads
+      with a 3-hour lookback buffer to capture late-arriving API syncs.
+    config:
+      tags: ['facts']
+      materialized: incremental
+      partition_by:
+        field: created_date
+        data_type: date
+        granularity: day
+      cluster_by: ['request_type_id', 'department_id', 'community_area_id', 'status_id']
+      unique_key: service_request_number
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - service_request_number
+    columns:
+      - name: service_request_number
+        description: Primary key — unique Socrata-generated identifier for the service request
+        tests:
+          - unique
+          - not_null
+
+      - name: request_type_id
+        description: |
+          Surrogate key foreign key to dim_request_type, generated via
+          farm_fingerprint(sr_type). Links to SLA targets and priority.
+        tests:
+          - not_null
+
+      - name: department_id
+        description: |
+          Surrogate key foreign key to dim_department, generated via
+          farm_fingerprint(owner_department). Links to department name and bureau.
+        tests:
+          - not_null
+
+      - name: community_area_id
+        description: |
+          Natural key — the numeric community area number from the raw ticket.
+          Links to dim_geography for boundary, name, and side enrichment.
+        tests:
+          - not_null
+
+      - name: status_id
+        description: |
+          Surrogate key foreign key to dim_status, generated via
+          farm_fingerprint(current_status). Links to status label.
+
+      - name: created_date
+        description: Date (date type) the ticket was created, used for daily partitioning
+
+      - name: closed_date
+        description: Date (date type) the ticket was closed; null if still open
+
+      - name: created_timestamp
+        description: Full timestamp (TIMESTAMP type) when the ticket was created
+
+      - name: closed_timestamp
+        description: Full timestamp (TIMESTAMP type) when the ticket was closed; null if still open
+
+      - name: last_modified_date
+        description: |
+          Timestamp of the most recent update to the ticket, sourced from Socrata's
+          lastModifiedDate field. Used for incremental deduplication — only tickets
+          modified after max(last_modified_date) minus 3 hours are reprocessed.
+
+      - name: latitude
+        description: Latitude coordinate of the ticket location (from Socrata)
+
+      - name: longitude
+        description: Longitude coordinate of the ticket location (from Socrata)
+
+      - name: resolution_days
+        description: |
+          Calendar days between created_date and closed_date. Null for tickets still open.
+          Source: computed by stg_service_requests as date_diff(closed_date, created_date, DAY).
+
+      - name: is_sla_met
+        description: |
+          Boolean flag indicating whether the ticket met its SLA target.
+          - true: status='Completed' and resolution_days <= sla_target_days
+          - false: status='Completed' and resolution_days > sla_target_days
+          - null: ticket not yet completed (cannot yet evaluate)
+          Computed against dim_request_type.sla_target_days.
+
+      - name: is_sla_breached
+        description: |
+          Boolean flag indicating whether the ticket breached its SLA target.
+          - true: status='Completed' and resolution_days > sla_target_days
+          - false: otherwise (including open tickets)
+          Computed against dim_request_type.sla_target_days.
+
+      - name: dbt_updated_at
+        description: Audit timestamp — current_timestamp() at time of model run
+
+  - name: fct_sla_performance
+    description: |
+      Transaction fact table for closed, completed service requests only. Designed for
+      SLA performance analytics, equity analysis, and trend reporting. One row per
+      completed ticket, partitioned by closed_date for efficient time-series queries.
+      Incremental logic appends only tickets closed since the last run. Does not include
+      open tickets — those are tracked in fct_service_requests.
+    config:
+      tags: ['facts', 'performance']
+      materialized: incremental
+      partition_by:
+        field: closed_date
+        data_type: date
+        granularity: day
+      cluster_by: ['community_area_id', 'request_type_id']
+      unique_key: service_request_number
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - service_request_number
+    columns:
+      - name: service_request_number
+        description: Primary key — unique Socrata-generated identifier for the service request
+        tests:
+          - unique
+          - not_null
+
+      - name: request_type_id
+        description: |
+          Surrogate key foreign key to dim_request_type, generated via
+          farm_fingerprint(sr_type).
+
+      - name: department_id
+        description: |
+          Surrogate key foreign key to dim_department, generated via
+          farm_fingerprint(owner_department).
+
+      - name: community_area_id
+        description: |
+          Natural key — the numeric community area number from the raw ticket.
+
+      - name: closed_date
+        description: |
+          Date (date type) the ticket was closed. Used for daily partitioning.
+          Only 'Completed' tickets appear in this table.
+
+      - name: closed_timestamp
+        description: Full timestamp (TIMESTAMP type) when the ticket was closed
+
+      - name: created_date
+        description: Date (date type) the ticket was created
+
+      - name: resolution_days
+        description: Calendar days between created_date and closed_date
+
+      - name: sla_target_days
+        description: Target resolution days for this request type from dim_request_type
+
+      - name: days_over_sla
+        description: |
+          Variance from SLA target: resolution_days minus sla_target_days.
+          Positive = breached, Negative = resolved ahead of target.
+
+      - name: is_breached
+        description: |
+          Boolean flag — true if resolution_days > sla_target_days, false otherwise.
+
+      - name: dbt_updated_at
+        description: Audit timestamp — current_timestamp() at time of model run

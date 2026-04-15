@@ -22,12 +22,22 @@ seeds:
         description: "Perimeter length of the community boundary"
 
   - name: sla_targets
-    description: "SLA targets and request type category groupings"
+    description: "SLA targets and priority levels for each service request type"
     columns:
       - name: sr_type
         tests:
           - unique
           - not_null
-      - name: category
-      - name: sla_days
+      - name: target_days
+      - name: priority
       - name: sla_target_source
+
+  - name: department_metadata
+    description: "Department display names and bureau groupings derived from stg_service_requests"
+    columns:
+      - name: owner_department
+        tests:
+          - unique
+          - not_null
+      - name: display_name
+      - name: bureau

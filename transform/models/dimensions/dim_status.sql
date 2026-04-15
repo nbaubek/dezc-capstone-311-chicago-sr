@@ -6,18 +6,18 @@
 with staging_statuses as (
     -- Extract unique ticket statuses from the raw service requests
     select distinct
-        status
+        current_status
     from {{ ref('stg_service_requests') }}
-    where status is not null
+    where current_status is not null
 ),
 
 status_dimension as (
     select
         -- Generate a unique integer ID based on the status string
-        farm_fingerprint(status) as status_id,
-        
+        farm_fingerprint(current_status) as status_id,
+
         -- Natural Key / Attribute
-        status as status_name,
+        current_status as status_name,
 
         -- Standard Dimension Metadata
         current_timestamp() as dbt_updated_at

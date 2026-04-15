@@ -1,0 +1,130 @@
+version: 2
+
+models:
+  - name: mart_operational
+    description: |
+      Real-time operational view of all open (unclosed) 311 service requests, enriched with
+      geographic, organizational, and SLA context. Designed for dispatch and triage workflows.
+      Shows every ticket currently in the backlog with days-open math and triage bucket classification.
+    config:
+      tags: ['marts', 'operations', 'dispatch']
+      materialized: view
+    columns:
+      - name: service_request_number
+        description: Primary key — unique identifier for the service request ticket
+        tests:
+          - unique
+          - not_null
+
+      - name: created_date
+        description: Calendar date the ticket was created (date part of created_timestamp)
+        tests:
+          - not_null
+
+      - name: last_modified_date
+        description: Timestamp of the most recent update to this ticket (from Socrata lastModifiedDate)
+
+      - name: community_area_name
+        description: Human-readable name of the Chicago community area (from dim_geography)
+
+      - name: ward
+        description: Chicago ward number the ticket was logged in
+
+      - name: latitude
+        description: Latitude coordinate of the ticket location
+
+      - name: longitude
+        description: Longitude coordinate of the ticket location
+
+      - name: department_name
+        description: Display name of the owning department (from dim_department)
+
+      - name: bureau
+        description: Bureau grouping of the owning department (from dim_department)
+
+      - name: request_type_name
+        description: Human-readable service request type name (from dim_request_type)
+
+      - name: priority_level
+        description: SLA priority tier — Critical, High, Medium, or Low (from dim_request_type)
+
+      - name: sla_target_days
+        description: Target number of calendar days for resolution (from dim_request_type)
+
+      - name: status_name
+        description: Current status label (from dim_status)
+
+      - name: days_open
+        description: |
+          Calendar days elapsed since ticket creation, computed as
+          date_diff(current_date(), created_date, DAY). Updates each run.
+
+      - name: days_until_breach
+        description: |
+          sla_target_days minus days_open. Negative values indicate the SLA is breached.
+          Formula: sla_target_days - days_open.
+
+      - name: triage_status
+        description: |
+          Dispatch triage classification bucket based on days_until_breach:
+          - '1 - Overdue': breach deadline has passed (days_until_breach < 0)
+          - '2 - Due Today': deadline is today (days_until_breach = 0)
+          - '3 - At Risk': 1–2 days until breach (days_until_breach in 1..2)
+          - '4 - On Track': 3+ days until breach
+
+  - name: mart_sla_performance
+    description: |
+      Aggregated SLA performance and equity analysis mart. Compares per-community-area
+      resolution performance against citywide baselines for each request type, producing
+      an equity_index that identifies underserved areas. Built from fct_sla_performance
+      (completed tickets only), filtered to community area + request type combinations
+      with at least 10 tickets to ensure statistical significance.
+    config:
+      tags: ['marts', 'equity', 'business_intelligence']
+      materialized: table
+    columns:
+      - name: community_area_name
+        description: Human-readable name of the Chicago community area (from dim_geography)
+
+      - name: city_side
+        description: |
+          City side designation — North, Northwest, West, South, Southwest, or Central
+          (from dim_geography)
+
+      - name: request_type_name
+        description: Service request type name (from dim_request_type)
+
+      - name: priority_level
+        description: SLA priority tier — Critical, High, Medium, or Low (from dim_request_type)
+
+      - name: area_total_requests
+        description: Count of completed tickets for this community area + request type combination
+
+      - name: area_breach_rate
+        description: |
+          Fraction of tickets in the area that breached SLA, computed as
+          safe_divide(area_breached_requests, area_total_requests).
+          Range: 0.0 to 1.0
+
+      - name: area_avg_resolution_days
+        description: Average resolution time in calendar days for this area + request type
+
+      - name: citywide_avg_resolution_days
+        description: Citywide average resolution time for this request type across all community areas
+
+      - name: citywide_total_requests
+        description: Total count of completed tickets for this request type across the entire city
+
+      - name: equity_index
+        description: |
+          Ratio of area_avg_resolution_days to citywide_avg_resolution_days.
+          - >= 1.25: Severely Underserved (area is 25%+ slower than citywide average)
+          - >= 1.10: Underserved (10–24% slower)
+          - <= 0.90: Over-served (faster than average)
+          - else: Equitable (average)
+
+      - name: equity_status
+        description: |
+          Human-readable equity classification derived from equity_index.
+          One of: 'Severely Underserved (25%+ Slower)', 'Underserved (10-24% Slower)',
+          'Over-served (Faster than Average)', or 'Equitable (Average)'

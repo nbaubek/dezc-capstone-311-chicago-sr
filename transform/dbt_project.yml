@@ -10,7 +10,6 @@ seed-paths: ["seeds"]
 test-paths: ["tests"]
 analysis-paths: ["analyses"]
 macro-paths: ["macros"]
-snapshot-paths: ["snapshots"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
@@ -21,36 +20,18 @@ models:
       +schema: staging
       +tags: ["staging"]
 
-    intermediate:
-      +materialized: view
-      +schema: intermediate
-      +tags: ["intermediate"]
-
-    marts:
+    dimensions:
       +materialized: table
-      +schema: marts
-      +catalog_name: bigquery_iceberg_catalog
-
-    core:
-      +materialized: table
-      +schema: core
-      +catalog_name: bigquery_iceberg_catalog
-
-    operations:
-      +materialized: table
-      +schema: operations
-      +catalog_name: bigquery_iceberg_catalog
+      +schema: dimensions
 
     facts:
       +materialized: table
       +schema: facts
-      +catalog_name: bigquery_iceberg_catalog
       +incremental_strategy: merge
 
-    dimensions:
+    marts:
       +materialized: table
-      +schema: dimensions
-      +catalog_name: bigquery_iceberg_catalog
+      +schema: marts
 
 seeds:
   chicago_311_sr_analytics:
@@ -60,9 +41,3 @@ tests:
   chicago_311_sr_analytics:
     +schema: tests
 
-snapshots:
-  chicago_311_sr_analytics:
-    +schema: snapshots
-
-on-run-start:
-  - "{{ create_schema_if_not_exists(target.database, target.schema) }}"

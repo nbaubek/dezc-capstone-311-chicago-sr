@@ -49,14 +49,42 @@ models:
       - name: is_business_day
         description: "True only when is_weekend=false AND is_illinois_holiday=false. The master flag for BR-004 business-day resolution time calculations."
 
+  - name: dim_department
+    description: >
+      Department dimension table for Chicago 311 service requests. Derives unique departments
+      from stg_service_requests and enriches them with display names and bureau groupings from
+      the department_metadata seed. SCD Type 0 — departments are slowly-changing reference
+      data, regenerated on each dbt run.
+    config:
+      tags: ['dimensions']
+
+    columns:
+      - name: department_id
+        description: "Surrogate key generated via farm_fingerprint(owner_department). Primary key."
+        tests:
+          - not_null
+
+      - name: raw_department_name
+        description: "The raw department name exactly as it appears in the Socrata API. Retained for lineage and debugging."
+
+      - name: department_name
+        description: "Cleaned and standardized department display name. Falls back to raw_department_name if no match in department_metadata seed."
+
+      - name: bureau
+        description: "The parent bureau/division grouping for the department. Null if not matched in seed."
+
+      - name: dbt_updated_at
+        description: "Audit timestamp indicating when this dimension record was last processed by dbt."
+        tests:
+          - not_null
+
   - name: dim_geography
     description: >
-      Geographical dimension table for Chicago 311 service requests. 
-      This model extracts the unique combinations of micro-administrative boundaries 
-      (Wards, Police Districts, Beats) from the raw service requests and enriches them 
-      with official spatial Multipolygons, macro-regions (City Sides), and density metrics 
-      from the City of Chicago data portal.
-    
+      Geographical dimension table for Chicago 311 service requests. Enriches unique location
+      combinations (community area, ward, police districts) from stg_service_requests with
+      official spatial Multipolygons and macro-regions (City Sides) from the community_areas seed.
+      SCD Type 0 — geographic boundaries are stable. Includes native BigQuery GEOGRAPHY objects
+      for BI choropleth mapping.
     config:
       tags: ['dimensions', 'spatial']
 
@@ -73,7 +101,7 @@ models:
         description: "The macro-region of Chicago the community area belongs to (e.g., 'North', 'South', 'West'). Useful for high-level dashboard aggregations."
 
       - name: ward
-        description: "The Chicago City Council district associated with the service request."
+        description: "The Chicago City Council district (1-50) associated with the service request location."
 
       - name: police_sector
         description: "The subset of a Police District used by the Chicago Police Department for resource allocation."
@@ -82,19 +110,79 @@ models:
         description: "The geographic subdivision used by the Chicago Police Department."
 
       - name: police_beat
-        description: "The smallest geographic area of patrol used by the Chicago Police Department."
+        description: "The smallest geographic patrol area used by the Chicago Police Department."
 
       - name: precinct
-        description: "The electoral precinct associated with the location."
+        description: "The electoral precinct associated with the service request location."
 
       - name: area_boundary
-        description: "A native BigQuery GEOGRAPHY object (Multipolygon) representing the exact borders of the Community Area. Optimized for BI choropleth mapping."
+        description: "Native BigQuery GEOGRAPHY object (Multipolygon) representing the exact Community Area borders. Optimized for BI choropleth mapping via ST_GEOGFROMTEXT()."
 
       - name: shape_area
-        description: "The total spatial area of the Community Area boundary, measured in square feet."
+        description: "The total area of the Community Area boundary, measured in square degrees."
 
       - name: shape_length
-        description: "The total perimeter length of the Community Area boundary, measured in feet."
+        description: "The perimeter length of the Community Area boundary."
 
       - name: dbt_updated_at
-        description: "Audit timestamp indicating exactly when this dimension record was processed by dbt."
+        description: "Audit timestamp indicating when this dimension record was processed by dbt."
+        tests:
+          - not_null
+
+  - name: dim_request_type
+    description: >
+      Request type dimension table for Chicago 311 service requests. Derives unique request
+      types from stg_service_requests and enriches them with SLA targets and priority levels
+      from the sla_targets seed. SCD Type 0 — request type definitions are stable, regenerated
+      on each dbt run.
+    config:
+      tags: ['dimensions']
+
+    columns:
+      - name: request_type_id
+        description: "Surrogate key generated via farm_fingerprint(sr_type). Primary key."
+        tests:
+          - not_null
+
+      - name: request_type_name
+        description: "The full request type name as it appears in the Socrata API (e.g., 'Pothole in Street Complaint')."
+
+      - name: sr_short_code
+        description: "The abbreviated short code for the service type."
+
+      - name: sla_target_days
+        description: "The target number of days to resolve a request of this type. Pulled from sla_targets seed."
+
+      - name: priority_level
+        description: "Priority tier (Critical/High/Medium/Low) for the request type. Used for SLA benchmarking and alerting."
+
+      - name: sla_target_source
+        description: "Reference or assumption basis for the SLA target days (e.g., 'City service standard estimate')."
+
+      - name: dbt_updated_at
+        description: "Audit timestamp indicating when this dimension record was processed by dbt."
+        tests:
+          - not_null
+
+  - name: dim_status
+    description: >
+      Request status dimension table for Chicago 311 service requests. Derives unique
+      ticket statuses from stg_service_requests. SCD Type 0 — status values are enumerated
+      by the source system and immutable. Provides a stable reference for status-based
+      filtering and aggregations in reporting.
+    config:
+      tags: ['dimensions']
+
+    columns:
+      - name: status_id
+        description: "Surrogate key generated via farm_fingerprint(current_status). Primary key."
+        tests:
+          - not_null
+
+      - name: status_name
+        description: "The ticket status value as it appears in the Socrata API (e.g., 'Open', 'Completed', 'Closed')."
+
+      - name: dbt_updated_at
+        description: "Audit timestamp indicating when this dimension record was processed by dbt."
+        tests:
+          - not_null
