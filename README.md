@@ -9,9 +9,39 @@ This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 ![img](311-banner-image.png)
 
 Quick start:
-+ `make infra-up` 
++ `make infra-up`
 + `make sync-env`
 + `make container-up`
+
+---
+
+## GCP Authentication (Application Default Credentials)
+
+All tools in this project (dbt, gcloud, BigQuery Python SDK) use **Application Default Credentials (ADC)** for GCP authentication. ADC looks for credentials in the following order:
+
+1. `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to a service account JSON key file
+2. **In Docker**: the mounted `application_default_credentials.json` at `/app/secrets/application_default_credentials.json`
+3. **On host**: `gcloud auth application-default login` (user credentials from `gcloud`)
+
+**Verify authentication on host:**
+
+```bash
+gcloud auth application-default print-access-token
+```
+
+If this returns a token, ADC is working. If it returns an error, run:
+
+```bash
+gcloud auth application-default login
+```
+
+**Verify authentication inside Docker:**
+
+```bash
+docker compose exec flow-runner bash -c "cat /app/secrets/application_default_credentials.json" | head
+```
+
+The credentials file is mounted read-only at `/app/secrets/application_default_credentials.json` and the `GOOGLE_APPLICATION_CREDENTIALS` env var is set in the `flow-runner` service in `docker-compose.yml`.
 
 ---
 
@@ -152,6 +182,69 @@ These are the decisions that must be written down so dbt tests can enforce them 
 
 Chicago 311 is an **event-driven** operational dataset. Each row is a discrete real-world event — a citizen reported something, the city responded. This maps naturally to a classic **Kimball star schema**: **facts** are events,**dimensions** describe the context of those events.
 
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Staging Layer                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  stg_service_requests (cleaned source data)                                │
+│  - All source columns                                                     │
+│  - Type casting applied                                                   │
+│  - Legacy and duplicate records flagged                                   │
+└────────────────────────────┬──────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Intermediate Layer                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  int_sla_performance                                                        │
+│  - SLA targets assigned                                                    │
+│  - Resolution times calculated                                             │
+│  - SLA breach detection                                                    │
+│  - Equity index computed                                                   │
+└────────────────────────────┬──────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      Mart Layer (Star Schema)                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Dimensions:                    Fact:                                      │
+│  ┌─────────────┐                ┌─────────────────────┐                   │
+│  │ dim_date    │◄───────────────┤                     │                   │
+│  │             │                │ fct_service_        │                   │
+│  │ - date      │                │   requests          │                   │
+│  │ - is_weekend│                │                     │                   │
+│  └─────────────┘                │ - days_open         │                   │
+│  ┌─────────────┐                │ - resolution_days   │                   │
+│  │ dim_request │◄───────────────┤ - is_sla_breach     │                   │
+│  │   _type     │                │ - equity_index      │                   │
+│  │             │                │                     │                   │
+│  │ - sla_target│◄───────────────┤                     │                   │
+│  └─────────────┘                └──────────┬──────────┘                   │
+│  ┌─────────────┐                           │                             │
+│  │ dim_dept    │◄──────────────────────────┤                             │
+│  │             │                           │                             │
+│  └─────────────┘                           │                             │
+│  ┌─────────────┐                           │                             │
+│  │ dim_geo     │◄──────────────────────────┤                             │
+│  │             │                           │                             │
+│  └─────────────┘                           │                             │
+│  ┌─────────────┐                           │                             │
+│  │ dim_status  │◄──────────────────────────┘                             │
+│  │             │                                                        │
+│  └─────────────┘                                                        │
+│                                                                          │
+│  Dashboard Marts:                                                       │
+│  ┌────────────────────────┐  ┌────────────────────────┐                │
+│  │ mart_operational_     │  │ mart_sla_equity_       │                │
+│  │   dashboard           │  │   dashboard            │                │
+│  │                      │  │                       │                │
+│  │ - Daily metrics       │  │ - Weekly metrics       │                │
+│  │ - Current backlog     │  │ - SLA compliance      │                │
+│  │ - At-risk requests    │  │ - Equity analysis      │                │
+│  └────────────────────────┘  └────────────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 **Dimensions**
 
 1. **`dim_date`**
@@ -204,17 +297,21 @@ Worth having as a small dimension rather than a raw string in the fact table. St
 
 **Fact Tables**
 
-+ **`fct_service_requests`**
+1. **`fct_service_requests`** — *Accumulating Snapshot Fact Table*
+    + **Grain:** One row per service request (primary key: `service_request_number`)
+    + **Lifecycle:** The row is created when the ticket is created and updated as it moves through `Open → In Progress → Completed`. It is not deleted.
+    + **Incremental strategy:** Merge on `service_request_number` with a 3-hour lookback buffer on `last_modified_date` to catch late-arriving Socrata syncs.
+    + **Partitioning:** `created_date` — tracks when tickets entered the system. Clustered by `[request_type_id, department_id, community_area_id, status_id]` for common filter combinations.
+    + **SLA flags:** `is_sla_met` and `is_sla_breached` are computed at query time against `dim_request_type.sla_target_days`, evaluated only for `current_status = 'Completed'` tickets.
+    + **Why accumulating snapshot:** A service request is not a single event — it has a multi-step lifecycle. You need to see the current state of every ticket. An accumulating snapshot is the right pattern here.
 
-The core fact table. **Grain: one row per service request**. This is an **accumulating snapshot fact table** — not a transaction fact or a periodic snapshot. Here's why that distinction matters:
-A transaction fact table captures one immutable event. But a service request isn't a single event — it has a lifecycle: 
-
-```
-created → assigned → in progress → closed 
-```
-
-The row gets updated as the request moves through its lifecycle. That's the definition of an accumulating snapshot.
-
+2. **`fct_sla_performance`** — *Transaction Fact Table*
+    + **Grain:** One row per closed, completed service request (primary key: `service_request_number`)
+    + **Only completed tickets:** `where current_status = 'Completed'`. Open tickets don't exist here.
+    + **Incremental strategy:** Append-only — only tickets with `closed_date` greater than the max seen `closed_date` are inserted. No updates to existing rows.
+    + **Partitioning:** `closed_date` — business cares about when the work was finished, not when it was created.
+    + **Clustering:** `community_area_id` and `request_type_id` — exactly the two fields required to compute the equity index in `mart_sla_performance`.
+    + **Why a separate table:** Equity analysis requires comparing per-area resolution times against citywide baselines for the same request type. Open tickets systematically undercount resolution days, so they must be excluded.
 
 ---
 
@@ -710,20 +807,142 @@ Total number of columns: 35
 
 ## Working with dbt models and seeds
 
-The ingested into Iceberg table data serves as the source for downstream dbt models and marts.
+The Iceberg table data serves as the source for downstream dbt models and marts. All dbt commands run from the `transform/` directory.
 
+**Prerequisites**
 
-**How to deploy seeds**
+Credentials must be available at `application_default_credentials.json` in the project root.
 
-As per convention, seeds are stored in `transform/seeds/` directory. There is a `property.yml` file that describes every seed.
-Once you save that file, you need to tell dbt to push it into BigQuery before you can build your dimension.
+**From host (with `.env` sourced)**
 
-Run this specific sequence in your terminal:
+```bash
+# Set up environment
+set -a && source .env && set +a
 
-`dbt seed --select department_metadata` (This uploads the CSV into BigQuery as a native table).
+# Install dbt packages
+cd transform && dbt deps
 
-`dbt run --select dim_department` (This will now execute flawlessly, picking up the seed table and performing the LEFT JOIN).
+# Verify connection
+GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt debug --target dev
+```
 
+**From Docker**
+
+```bash
+# Inside flow-runner container
+docker compose exec flow-runner bash -c "cd /app/transform && dbt deps"
+docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt debug --target dev"
+```
+
+---
+
+**Seeds**
+
+Seeds are CSV files in `transform/seeds/` documented in `transform/seeds/properties.yml`. They must be loaded into BigQuery before dimensions that depend on them can build.
+
+```bash
+# Host
+cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt seed --target dev
+
+# Docker
+docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt seed --target dev"
+```
+
+This loads all three seeds: `community_areas` (77 rows), `sla_targets` (110 rows), `department_metadata` (14 rows).
+
+---
+
+**Build all models and run all tests**
+
+```bash
+# Host — full refresh (recreates all tables)
+cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt build --target dev --full-refresh
+
+# Host — normal incremental run (only processes changed models)
+cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt build --target dev
+
+# Docker
+docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt build --target dev --full-refresh"
+```
+
+**Note:** `source_not_null_ice_lakehouse_service_requests_community_area` will fail with ~4,765 nulls — this is a known data quality issue in the source Iceberg table, not a modeling bug. All downstream models build and pass tests.
+
+---
+
+**Build by layer**
+
+```bash
+# Seeds
+dbt seed --target dev
+
+# Staging (view — no table created, but tests run against source)
+dbt build --select path:models/staging --target dev
+
+# Dimensions (tables)
+dbt build --select path:models/dimensions --target dev --full-refresh
+
+# Facts (incremental tables)
+dbt build --select path:models/facts --target dev --full-refresh
+
+# Marts
+dbt build --select path:models/marts --target dev --full-refresh
+```
+
+---
+
+**Run a specific model**
+
+```bash
+# Host
+cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt run --select dim_geography --target dev --full-refresh
+
+# Docker
+docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt run --select dim_geography --target dev --full-refresh"
+```
+
+---
+
+**Run tests only (no materialization)**
+
+```bash
+# Host
+cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt test --target dev
+
+# Docker
+docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt test --target dev"
+```
+
+---
+
+**Compile (generate SQL without running — for debugging)**
+
+```bash
+# Host
+cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt compile --target dev
+
+# Output: transform/target/compiled/chicago_311_sr_analytics/models/
+```
+
+---
+
+**Generate documentation**
+
+```bash
+# Host
+cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt docs generate --target dev
+
+# Output: transform/target/catalog.json and manifest.json
+```
+
+---
+
+**Environment variables summary**
+
+| Variable | Host | Docker |
+| :--- | :--- | :--- |
+| `GOOGLE_APPLICATION_CREDENTIALS` | `../application_default_credentials.json` | `/app/secrets/application_default_credentials.json` |
+| `DBT_PROFILES_DIR` | `/path/to/transform` | `/app/transform` |
+| `GCP_PROJECT_ID` | from `.env` | from `.env` (passed into container) |
 
 ---
 
@@ -753,6 +972,8 @@ For every piece of code and the architecture as a whole, ask yourself:
 
 ## Some possible improvements for this project
 
+**General improvements**
+
 1. Use [Secret Manager](https://cloud.google.com/security/products/secret-manager) instead of `.env` file
   + Instead of injecting env vars manually, you use your cloud provider's secrets manager:
     + GCP → Secret Manager
@@ -764,3 +985,12 @@ For every piece of code and the architecture as a whole, ask yourself:
 6. Use VPC for GCP resources
 7. Optimize Apache Iceberg, e.g. compaction (at a later stage)
 8. ...
+
+
+**Enhancements regarding data modeling part**
+
+1. **Predictive Analytics**: ML model to predict SLA breach risk
+2. **Seasonal Adjustments**: Account for weather patterns affecting service times
+3. **Voice of Citizen**: Integrate citizen feedback and satisfaction surveys
+4. **Resource Optimization**: Model staffing needs based on historical demand patterns
+5. **Real-time Alerts**: Push notifications for critical SLA breaches
