@@ -94,15 +94,17 @@ models:
         description: "Latitude coordinate"
         tests:
           - dbt_utils.accepted_range:
-              min_value: -90
-              max_value: 90
+              arguments:
+                min_value: -90
+                max_value: 90
 
       - name: longitude
         description: "Longitude coordinate"
         tests:
           - dbt_utils.accepted_range:
-              min_value: -180
-              max_value: 180
+              arguments:
+                min_value: -180
+                max_value: 180
 
       - name: x_coordinate
         description: "X coordinate (Illinois State Plane)"
@@ -128,8 +130,9 @@ models:
         tests:
           - not_null
           - dbt_utils.accepted_range:
-              min_value: 1
-              max_value: 12
+              arguments:
+                min_value: 1
+                max_value: 12
 
       - name: created_hour
         description: "Hour of day when request was created (0-23)"

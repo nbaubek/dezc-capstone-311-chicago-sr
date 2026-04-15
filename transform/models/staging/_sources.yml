@@ -126,8 +126,9 @@ sources:
             tests:
               - not_null
               - dbt_utils.accepted_range:
-                  min_value: 1
-                  max_value: 12
+                  arguments:
+                    min_value: 1
+                    max_value: 12
 
           - name: created_hour
             description: "Hour of day when request was created (0-23)"

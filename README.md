@@ -192,7 +192,7 @@ Worth having as a small dimension rather than a raw string in the fact table. St
 | :--- | :--- | :--- |
 | **dim_date** | Type 0 | Immutable by definition |
 | **dim_request_type** | Type 1 | SLA config changes overwrite, no history needed |
-| **dim_department** | Type 2 | Dept names/structure can change, history matters |
+| **dim_department** | Type 1 | Dept names/structure can change, history matters |
 | **dim_geography** | Type 0 | Community area boundaries are fixed |
 | **dim_status** | Type 0 | Fixed controlled vocabulary |
 
@@ -720,9 +720,9 @@ Once you save that file, you need to tell dbt to push it into BigQuery before yo
 
 Run this specific sequence in your terminal:
 
-dbt seed --select department_metadata (This uploads the CSV into BigQuery as a native table).
+`dbt seed --select department_metadata` (This uploads the CSV into BigQuery as a native table).
 
-dbt run --select dim_department (This will now execute flawlessly, picking up the seed table and performing the LEFT JOIN).
+`dbt run --select dim_department` (This will now execute flawlessly, picking up the seed table and performing the LEFT JOIN).
 
 
 ---
