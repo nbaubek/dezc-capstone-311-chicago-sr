@@ -1,4 +1,4 @@
-.PHONY: infra-up sync-env container-up wait-for-prefect setup-prefect yearly-ingestion backfill rebuild deploy destroy help
+.PHONY: infra-up sync-env container-up wait-for-prefect setup-prefect yearly-ingestion backfill rebuild destroy help
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
 
@@ -41,7 +41,9 @@ wait-for-prefect:
 	done
 	@echo "Prefect server did not become healthy in 60s. Check containers."
 
-# Create Prefect work pool and register flow deployments
+# Create Prefect work pool and register all three flow deployments.
+# daily-311: cron-scheduled (midnight daily).
+# yearly-311 + backfill-311: on-demand (manual trigger only).
 # Prerequisites: container-up (Prefect server + worker must be running)
 setup-prefect: wait-for-prefect
 	@echo "Setting up Prefect work pool and deployments..."
@@ -51,7 +53,15 @@ setup-prefect: wait-for-prefect
 		--name daily-311 \
 		--pool chicago-311-pool \
 		--cron "0 0 * * *"
-	@echo "Prefect setup complete."
+	docker compose exec -T flow-runner prefect deploy \
+		flows/chicago_pipeline.py:yearly_flow \
+		--name yearly-311 \
+		--pool chicago-311-pool
+	docker compose exec -T flow-runner prefect deploy \
+		flows/chicago_pipeline.py:backfill_flow \
+		--name backfill-311 \
+		--pool chicago-311-pool
+	@echo "Prefect setup complete. 3 deployments registered (1 scheduled, 2 on-demand)."
 
 # ── Ingestion Flows ──────────────────────────────────────────────────────────
 # All ingestion targets require setup-prefect to have been run first.
@@ -81,15 +91,6 @@ rebuild:
 	docker compose build flow-runner
 	docker compose up -d flow-runner
 
-# Register Prefect deployments (work pool must already exist)
-deploy:
-	@echo "Registering Prefect deployments..."
-	docker compose exec -T flow-runner prefect deploy \
-		flows/chicago_pipeline.py:daily_flow \
-		--name daily-311 \
-		--pool chicago-311-pool \
-		--cron "0 0 * * *"
-
 # Tear down GCP infrastructure
 destroy:
 	@echo "Destroying GCP infrastructure..."
@@ -113,5 +114,4 @@ help:
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make rebuild   - Rebuild flow-runner container"
-	@echo "  make deploy    - Register Prefect deployments"
 	@echo "  make destroy   - Tear down GCP infrastructure"
