@@ -4,12 +4,10 @@ Uses a Native BQ Staging table to feed an Iceberg target via MERGE.
 """
 
 import os
-from datetime import datetime
-from typing import Optional
 
 import polars as pl
 from google.cloud import bigquery
-from prefect import task, get_run_logger
+from prefect import get_run_logger, task
 from sodapy import Socrata
 
 # Table configuration
@@ -119,7 +117,7 @@ def ensure_iceberg_table_exists() -> None:
 def create_staging_table() -> None:
     """
     Create the staging table for WAP pattern.
-    CRITICAL: This is a NATIVE BigQuery table, not Iceberg. This allows us to 
+    CRITICAL: This is a NATIVE BigQuery table, not Iceberg. This allows us to
     use WRITE_TRUNCATE efficiently before merging into the main Iceberg table.
     """
     logger = get_run_logger()
@@ -396,6 +394,7 @@ def write_to_bigquery(
 ) -> int:
     """Write Polars DataFrame to BigQuery table using LoadJob."""
     import io
+
     import pyarrow.parquet as pq
 
     logger = get_run_logger()
@@ -416,8 +415,12 @@ def write_to_bigquery(
 
     job = client.load_table_from_file(buffer, table_id, job_config=job_config)
     job.result()
-    logger.info(f"Successfully wrote {job.output_rows} rows to {table_id} via {write_disposition}")
-    return job.output_rows
+    output_rows = job.output_rows
+    if output_rows is None:
+        msg = f"BigQuery load job returned None rows for {table_id}"
+        raise ValueError(msg)
+    logger.info(f"Successfully wrote {output_rows} rows to {table_id} via {write_disposition}")
+    return output_rows  # type: ignore[no-any-return]
 
 @task(retries=2, retry_delay_seconds=30)
 def audit_table_checks(start_date: str, end_date: str, min_rows: int = 1) -> bool:
@@ -425,17 +428,17 @@ def audit_table_checks(start_date: str, end_date: str, min_rows: int = 1) -> boo
     logger = get_run_logger()
     client = _get_bigquery_client()
 
-    # Because we truncate the staging table every chunk, we don't even need the date_filter 
+    # Because we truncate the staging table every chunk, we don't even need the date_filter
     # anymore for the audit. We just audit whatever is currently in the staging table.
     count_query = f"SELECT COUNT(*) as cnt FROM `{STAGING_TABLE_IDENTIFIER}`"
-    row_count = list(client.query(count_query).result())[0].cnt
+    row_count = next(iter(client.query(count_query).result())).cnt
 
     if row_count < min_rows:
         logger.error(f"Audit failed: expected {min_rows}, got {row_count}")
         return False
 
     null_check_query = f"SELECT COUNT(*) as cnt FROM `{STAGING_TABLE_IDENTIFIER}` WHERE created_date IS NULL"
-    null_count = list(client.query(null_check_query).result())[0].cnt
+    null_count = next(iter(client.query(null_check_query).result())).cnt
 
     if null_count > 0:
         logger.error(f"Audit failed: {null_count} null created_dates")
@@ -505,6 +508,9 @@ def merge_staging_to_iceberg() -> int:
     job = client.query(merge_query)
     job.result()
     merged_rows = job.num_dml_affected_rows
+    if merged_rows is None:
+        msg = "BigQuery merge job returned None for num_dml_affected_rows"
+        raise ValueError(msg)
     logger.info(f"Successfully merged {merged_rows} rows into Iceberg table")
     return merged_rows
 
@@ -517,8 +523,8 @@ def extract_and_load_chunk(
     write_disposition: str = "WRITE_TRUNCATE" # Pass this through
 ) -> int:
     """Extract from Socrata, load to BigQuery."""
-    logger = get_run_logger()
-    
+    get_run_logger()
+
     # Needs to be imported here if you define fetch_from_socrata above
     df = fetch_from_socrata(start_date, end_date, limit, date_field=date_field)
     if df.is_empty():

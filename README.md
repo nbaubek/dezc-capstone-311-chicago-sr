@@ -955,10 +955,52 @@ cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credential
 
 ## Testing and development dependencies
 
-mypy
-ruff
-pytest
-sqlfluff
+Tools for linting, type-checking, and testing Python code.
+
+| Tool | Purpose | Config |
+|------|---------|--------|
+| **ruff** | Python linter + formatter (replaces flake8, isort, pyupgrade) | `pyproject.toml` `[tool.ruff]` |
+| **mypy** | Static type checker for Python | `pyproject.toml` `[tool.mypy]` |
+| **pytest** | Unit tests for pipeline Python code | `pyproject.toml` `[tool.pytest]`, `flows/tests/conftest.py` |
+
+All tools run from the project root.
+
+### From host
+
+Requires dev dependencies: `uv sync --group dev` (first run only).
+
+```bash
+# Python linting
+uv run ruff check flows/
+
+# Auto-fix safe lint issues
+uv run ruff check flows/ --fix
+
+# Type checking
+uv run mypy flows/ --no-error-summary
+
+# Unit tests
+uv run pytest flows/tests/ -v
+```
+
+### Via Make
+
+```bash
+make lint        # uv run ruff check
+make lint-fix    # uv run ruff --fix (auto-fix safe issues)
+make typecheck   # uv run mypy
+make test        # uv run pytest
+```
+
+### Test structure
+
+Tests live in `flows/tests/` and mock Prefect at the session level (see `conftest.py`), so they run without a Prefect server. Tests cover:
+- WAP chunking logic (`_ingest_date_range`)
+- Polars schema enforcement (Socrata → BigQuery pipeline)
+- Primary key null filtering
+- Boolean string conversion
+- Temporal column derivation (`created_year`, `created_month`, `created_day_of_week`)
+- Table identifier construction
 
 ---
 

@@ -1,16 +1,17 @@
 import os
 from datetime import datetime, timedelta
+
 from dotenv import load_dotenv
 from prefect import flow
 
 # Updated imports
 from flows.tasks.bigquery_ingestion import (
-    extract_and_load_chunk,
+    audit_table_checks,
+    clear_staging_table,
+    create_staging_table,
     ensure_dataset_exists,
     ensure_iceberg_table_exists,
-    create_staging_table,
-    clear_staging_table,
-    audit_table_checks,
+    extract_and_load_chunk,
     merge_staging_to_iceberg,
 )
 
@@ -29,7 +30,7 @@ def _ingest_date_range(
     chunk_months: int = 1,
     date_field: str = "created_date"
 ) -> tuple[int, int]:
-    
+
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
@@ -54,16 +55,16 @@ def _ingest_date_range(
         try:
             # 1. Extract and Load to Staging (WRITE_TRUNCATE clears the last chunk)
             rows = extract_and_load_chunk(
-                str_start, str_end, 
-                table_id=STAGING_TABLE_IDENTIFIER, 
+                str_start, str_end,
+                table_id=STAGING_TABLE_IDENTIFIER,
                 date_field=date_field,
-                write_disposition="WRITE_TRUNCATE" 
+                write_disposition="WRITE_TRUNCATE"
             )
-            
+
             if rows:
                 # 2. Audit the staging table
                 passed = audit_table_checks(str_start, str_end, min_rows=1)
-                
+
                 if passed:
                     # 3. Publish to Iceberg via MERGE
                     merged_rows = merge_staging_to_iceberg()
@@ -93,7 +94,7 @@ def yearly_flow(year: int) -> None:
 
     start_date = f"{year}-01-01"
     end_date = f"{year + 1}-01-01"
-    
+
     _ingest_date_range(start_date, end_date, chunk_months=1, date_field="created_date")
 
 
@@ -109,7 +110,7 @@ def daily_flow() -> None:
     # Extract & TRUNCATE into Staging
     # NOTE: Daily flow filters on last_modified_date to catch status changes
     rows = extract_and_load_chunk(
-        start_date, end_date, 
+        start_date, end_date,
         table_id=STAGING_TABLE_IDENTIFIER,
         date_field="last_modified_date",
         write_disposition="WRITE_TRUNCATE"

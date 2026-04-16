@@ -1,4 +1,4 @@
-.PHONY: infra-up sync-env container-up wait-for-prefect setup-prefect yearly-ingestion backfill rebuild destroy help
+.PHONY: infra-up sync-env container-up wait-for-prefect setup-prefect yearly-ingestion backfill rebuild destroy lint test help
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
 
@@ -96,6 +96,24 @@ destroy:
 	@echo "Destroying GCP infrastructure..."
 	terraform -chdir=infra destroy -auto-approve
 
+# ── Code Quality ─────────────────────────────────────────────────────────────
+
+lint:
+	@echo "Running ruff linter..."
+	uv run ruff check flows/
+
+lint-fix:
+	@echo "Running ruff auto-fix..."
+	uv run ruff check flows/ --fix
+
+typecheck:
+	@echo "Running mypy type checker..."
+	uv run mypy flows/ --no-error-summary
+
+test:
+	@echo "Running pytest..."
+	uv run pytest flows/tests/ -v
+
 # ── Help ──────────────────────────────────────────────────────────────────────
 
 help:
@@ -111,6 +129,12 @@ help:
 	@echo "  make yearly-ingestion YEAR=2024  - Ingest one full year"
 	@echo "  make daily-ingestion             - Run daily WAP flow (last 24h)"
 	@echo "  make backfill START=... END=...   - Backfill a date range"
+	@echo ""
+	@echo "Code quality:"
+	@echo "  make lint        - Run ruff linter on Python code (flows/)"
+	@echo "  make lint-fix    - Run ruff with --fix (auto-fix safe issues)"
+	@echo "  make typecheck   - Run mypy type checker on Python code"
+	@echo "  make test        - Run pytest on flows/tests/"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make rebuild   - Rebuild flow-runner container"
