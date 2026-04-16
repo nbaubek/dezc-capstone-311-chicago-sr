@@ -53,10 +53,14 @@ fact_build as (
         sr.closed_date as closed_timestamp,
         sr.last_modified_date,
 
-        -- Location Coordinates (Keeping raw Lat/Lon in Fact for pinpoint mapping, 
+        -- Location Coordinates (Keeping raw Lat/Lon in Fact for pinpoint mapping,
         -- while keeping the heavy Multipolygon in the Geography Dimension)
         sr.latitude,
         sr.longitude,
+
+        -- Ward (added directly to fact; do NOT join from dim_geography which has
+        -- multiple rows per community_area and would cause a Cartesian fan-out)
+        sr.ward,
 
         -- Core Fact Metrics
         sr.resolution_days,

@@ -80,18 +80,19 @@ models:
 
   - name: dim_geography
     description: >
-      Geographical dimension table for Chicago 311 service requests. Enriches unique location
-      combinations (community area, ward, police districts) from stg_service_requests with
-      official spatial Multipolygons and macro-regions (City Sides) from the community_areas seed.
-      SCD Type 0 — geographic boundaries are stable. Includes native BigQuery GEOGRAPHY objects
-      for BI choropleth mapping.
+      Geographical dimension table for Chicago 311 service requests. One row per community area (77 total),
+      sourced from the community_areas seed. Contains the official spatial Multipolygon and macro-regions
+      (City Sides). SCD Type 0 — geographic boundaries are stable.
+      IMPORTANT: This dimension must maintain exactly ONE row per community_area_id (enforced by a unique test).
+      Ward is NOT included here — it is a direct column on fct_service_requests to avoid fan-out joins.
     config:
       tags: ['dimensions', 'spatial']
 
     columns:
       - name: community_area_id
-        description: "The official numeric ID (1-77) representing a Chicago Community Area."
+        description: "The official numeric ID (1-77) representing a Chicago Community Area. Primary key — enforced unique."
         tests:
+          - unique
           - not_null
 
       - name: community_area_name
@@ -99,21 +100,6 @@ models:
 
       - name: city_side
         description: "The macro-region of Chicago the community area belongs to (e.g., 'North', 'South', 'West'). Useful for high-level dashboard aggregations."
-
-      - name: ward
-        description: "The Chicago City Council district (1-50) associated with the service request location."
-
-      - name: police_sector
-        description: "The subset of a Police District used by the Chicago Police Department for resource allocation."
-
-      - name: police_district
-        description: "The geographic subdivision used by the Chicago Police Department."
-
-      - name: police_beat
-        description: "The smallest geographic patrol area used by the Chicago Police Department."
-
-      - name: precinct
-        description: "The electoral precinct associated with the service request location."
 
       - name: area_boundary
         description: "Native BigQuery GEOGRAPHY object (Multipolygon) representing the exact Community Area borders. Optimized for BI choropleth mapping via ST_GEOGFROMTEXT()."

@@ -19,7 +19,7 @@ Quick start:
 
 All tools in this project (dbt, gcloud, BigQuery Python SDK) use **Application Default Credentials (ADC)** for GCP authentication. ADC looks for credentials in the following order:
 
-1. `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to a service account JSON key file
+1. `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to a OAuth user credentials JSON key file
 2. **In Docker**: the mounted `application_default_credentials.json` at `/app/secrets/application_default_credentials.json`
 3. **On host**: `gcloud auth application-default login` (user credentials from `gcloud`)
 
@@ -235,12 +235,11 @@ Chicago 311 is an **event-driven** operational dataset. Each row is a discrete r
 │                                                                          │
 │  Dashboard Marts:                                                       │
 │  ┌────────────────────────┐  ┌────────────────────────┐                │
-│  │ mart_operational_     │  │ mart_sla_equity_       │                │
-│  │   dashboard           │  │   dashboard            │                │
-│  │                      │  │                       │                │
-│  │ - Daily metrics       │  │ - Weekly metrics       │                │
-│  │ - Current backlog     │  │ - SLA compliance      │                │
-│  │ - At-risk requests    │  │ - Equity analysis      │                │
+│  │ mart_operational        │  │ mart_sla_performance   │                │
+│  │                        │  │                        │                │
+│  │ - Daily metrics        │  │ - Weekly metrics       │                │
+│  │ - Current backlog      │  │ - SLA compliance       │                │
+│  │ - At-risk requests     │  │ - Equity analysis      │                │
 │  └────────────────────────┘  └────────────────────────┘                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -260,7 +259,7 @@ Distinct owner_department values enriched from our seed with display names and b
     + **Type: SCD Type 1** — this is the one dimension worth tracking history on. If "CDOT - Department of Transportation" gets renamed mid-year, you want historical requests to still show the old name so our trend analysis isn't broken. In practice for a 2-year dataset this probably won't happen, but modeling it as Type 2 demonstrates the pattern correctly.
 
 4. **`dim_geography`**
-This one is more interesting than it looks. The source has multiple geographic grains on every row: 
+This one is more interesting than it looks. The source has multiple geographic grains on every row:
     + `community_area` (77 neighborhoods)
     + `ward` (50 political districts)
     + `police_district`
@@ -268,7 +267,7 @@ This one is more interesting than it looks. The source has multiple geographic g
     + raw `latitude/longitude`
 
     + You need to decide the grain of this dimension.
-The right answer is **community area** as the primary grain — it's the most analytically meaningful, stable, and maps directly to neighborhood names from our seed. Ward and police district become attributes on the same row.
+The right answer is **community area** as the primary grain — it's the most analytically meaningful, stable, and maps directly to neighborhood names from our seed. One row per community area (77 total), sourced from the community_areas seed. Ward is NOT included here — it is stored directly on `fct_service_requests` to avoid fan-out joins, since a single community area spans multiple wards.
 
     + **Type: SCD Type 0** — Chicago's 77 community areas have fixed boundaries defined since 1920. They never change. Ward boundaries do change after redistricting (every 10 years), but since we're only covering 2024-2025-2026 we won't cross a redistricting boundary.
 
@@ -312,6 +311,13 @@ Worth having as a small dimension rather than a raw string in the fact table. St
     + **Partitioning:** `closed_date` — business cares about when the work was finished, not when it was created.
     + **Clustering:** `community_area_id` and `request_type_id` — exactly the two fields required to compute the equity index in `mart_sla_performance`.
     + **Why a separate table:** Equity analysis requires comparing per-area resolution times against citywide baselines for the same request type. Open tickets systematically undercount resolution days, so they must be excluded.
+
+---
+
+## Dashboards
+
+The instructions are in the DASHBOARDS.md
+
 
 ---
 
@@ -476,6 +482,7 @@ MCP servers I installed for this project:
 + Prefect MCP
 + Polars MCP
 + dbt MCP
++ Evidence MCP
 
 ## Data Ingestion
 

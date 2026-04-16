@@ -19,7 +19,7 @@ enrichment as (
 
         -- Geographic Context (Pinpoint + Neighborhood)
         geo.community_area_name,
-        geo.ward,
+        f.ward,
         f.latitude,
         f.longitude,
 

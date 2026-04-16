@@ -50,6 +50,13 @@ models:
         tests:
           - not_null
 
+      - name: ward
+        description: |
+          Chicago City Council ward number (1-50) of the service request location.
+          Stored directly on the fact table — NOT on dim_geography — to avoid fan-out
+          joins, since a community area spans multiple wards. Null for tickets with
+          no ward assignment in the source.
+
       - name: status_id
         description: |
           Surrogate key foreign key to dim_status, generated via
@@ -87,15 +94,15 @@ models:
       - name: is_sla_met
         description: |
           Boolean flag indicating whether the ticket met its SLA target.
-          - true: status='Completed' and resolution_days <= sla_target_days
-          - false: status='Completed' and resolution_days > sla_target_days
+          - true: current_status='Completed' and resolution_days <= sla_target_days
+          - false: current_status='Completed' and resolution_days > sla_target_days
           - null: ticket not yet completed (cannot yet evaluate)
           Computed against dim_request_type.sla_target_days.
 
       - name: is_sla_breached
         description: |
           Boolean flag indicating whether the ticket breached its SLA target.
-          - true: status='Completed' and resolution_days > sla_target_days
+          - true: current_status='Completed' and resolution_days > sla_target_days
           - false: otherwise (including open tickets)
           Computed against dim_request_type.sla_target_days.
 
