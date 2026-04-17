@@ -4,7 +4,7 @@
 
 This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 
-**What it does:** Ingest [Chicago 311 service requests](https://data.cityofchicago.org/311/v6vf-nfxy) (~4.4M rows across 2024–2026) via a WAP-pattern pipeline into BigQuery with Apache Iceberg tables on GCS, then model the data in dbt for operational and SLA/equity dashboards in Looker.
+**What it does:** Ingest [Chicago 311 service requests](https://data.cityofchicago.org/311/v6vf-nfxy) (~4.4M rows across 2024–2026) via a WAP-pattern pipeline into BigQuery with Apache Iceberg tables on GCS, then model the data in dbt for operational and SLA/equity dashboards in Looker. This is a **batch** pipeline.
 
 ![img](311-banner-image.png)
 
@@ -42,6 +42,9 @@ docker compose exec flow-runner bash -c "cat /app/secrets/application_default_cr
 ```
 
 The credentials file is mounted read-only at `/app/secrets/application_default_credentials.json` and the `GOOGLE_APPLICATION_CREDENTIALS` env var is set in the `flow-runner` service in `docker-compose.yml`.
+
+
+*Note: If you want to use CI/CD, you will need to set up WIF*
 
 ---
 
@@ -316,13 +319,12 @@ Worth having as a small dimension rather than a raw string in the fact table. St
 
 ## Dashboards
 
-The instructions are in the DASHBOARDS.md
-
+I actually haven't figured out how to share the dashboards except export them to PDFs. Those are located in the "finished_dashboards" directory.
 
 ---
 
 
-Let's go ahead and discuss the tech stack.
+Now let's go ahead and discuss the tech stack.
 
 
 ## Stack and Requirements
@@ -339,7 +341,7 @@ Let's go ahead and discuss the tech stack.
   + **GCS** for storage
   + **BigQuery** as compute engine for Iceberg tables
   + **BigLake** for Iceberg catalog
-+ **Metabase** for dashboarding
++ **Looker** for dashboarding
 + **Terraform** for GCP infrastructure management
 + **dbt** for data modeling and transformation, and data quality checks
 + **Great Expectations** for data quality checks
@@ -482,7 +484,6 @@ MCP servers I installed for this project:
 + Prefect MCP
 + Polars MCP
 + dbt MCP
-+ Evidence MCP
 
 ## Data Ingestion
 
@@ -965,6 +966,8 @@ Tools for linting, type-checking, and testing Python code.
 
 All tools run from the project root.
 
+---
+
 ### From host
 
 Requires dev dependencies: `uv sync --group dev` (first run only).
@@ -983,6 +986,8 @@ uv run mypy flows/ --no-error-summary
 uv run pytest flows/tests/ -v
 ```
 
+---
+
 ### Via Make
 
 ```bash
@@ -991,6 +996,8 @@ make lint-fix    # uv run ruff --fix (auto-fix safe issues)
 make typecheck   # uv run mypy
 make test        # uv run pytest
 ```
+
+---
 
 ### Test structure
 
@@ -1017,7 +1024,7 @@ For every piece of code and the architecture as a whole, ask yourself:
 | Partial Failure   | If the job crashes at 50%, do I have a mess of "half-written" data?        |
 | Observation       | If this fails at 3:00 AM, will the logs tell me exactly why?               |
 
-
+---
 
 ## Some possible improvements for this project
 
