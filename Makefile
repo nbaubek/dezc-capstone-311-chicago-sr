@@ -14,7 +14,7 @@ sync-env:
 	@for var in GCP_PROJECT_ID LAKEHOUSE_BUCKET; do \
 		value=$$(terraform -chdir=infra output -raw ENV_$${var}); \
 		if grep -q "^$${var}=" .env; then \
-			sed -i '' "s|^$${var}=.*|$${var}=$${value}|\" .env; \
+			sed -i '' "s|^$${var}=.*|$${var}=$${value}|" .env; \
 		else \
 			echo "$${var}=$${value}" >> .env; \
 		fi; \
