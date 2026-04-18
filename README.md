@@ -4,7 +4,7 @@
 
 This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 
-**What it does:** Ingest [Chicago 311 service requests](https://data.cityofchicago.org/311/v6vf-nfxy) (~4.4M rows across 2024–2026) via a WAP-pattern pipeline into BigQuery with Apache Iceberg tables on GCS, then model the data in dbt for operational and SLA/equity dashboards in Looker. This is a **batch** pipeline.
+**What it does:** Ingest [Chicago 311 service requests](https://data.cityofchicago.org/311/v6vf-nfxy) (~4.4M rows across 2024–2026) via a WAP-pattern pipeline into BigQuery with Apache Iceberg tables on GCS, then model the data in dbt for operational and SLA/equity dashboards in Shiny. This is a **batch** pipeline.
 
 ![img](311-banner-image.png)
 
@@ -12,19 +12,19 @@ This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 
 **Quick Start**
 
-1. Set up your GCP with service account
-2. Create an application token here
+1. Set up your GCP with service account. Copy your project id from the console and paste it in `.env` file as the value for `GCP_PROJECT_ID`. The next section goes into more detail regarding the ADC authentication (also required before running below defined make commands) .
+2. Create your Socrata application token [here](https://evergreen.data.socrata.com/login). You need to sign up, go to the "Developer Settings" (menu in the upper right corner), and click "Create New App Token". Copy that token and paste it in your `.env` file as the value for `SOCRATA_APP_TOKEN`.
 
-Fill out all your information in the `.env` file (there is `.env.example` at the root). For that you will need a GCP service account. And then run make commands defined below. If you're using Claude Code or other assistant, you can refer to this README.md file so that it knows what to do.
+Fill out all your information in the `.env` file (there is `.env.example` at the root). And then run `make` commands defined below. If you're using Claude Code or other assistant, you can refer to this `README.md` file so that it knows what to do.
 
 + `make infra-up` - Start Terraform infra
 + `make sync-env` - Sync the environment variables
 + `make container-up` - Start Docker setup
 + `make setup-prefect` - Configure Prefect before ingestion
 
-Look up other commands via `make help`
+Look up other commands via `make help`.
 
-Don't forget to run `docker compose down` and `make destroy` after you've run the pipeline and dbt models.
+Don't forget to run `docker compose down` and `make destroy` after you've run the pipeline and dbt models. Note: `make destroy` will require you to clean up GCS bucket data and BigQuery dataset.
 
 ---
 
@@ -33,8 +33,10 @@ Don't forget to run `docker compose down` and `make destroy` after you've run th
 All tools in this project (dbt, gcloud, BigQuery Python SDK) use **Application Default Credentials (ADC)** for GCP authentication. ADC looks for credentials in the following order:
 
 1. `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to a OAuth user credentials JSON key file
-2. **In Docker**: the mounted `application_default_credentials.json` at `/app/secrets/application_default_credentials.json`
+2. **In Docker**: the mounted `application_default_credentials.json` at `/app/secrets/application_default_credentials.json` (bind mount from `./application_default_credentials.json` at the project root — see `docker-compose.yml`)
 3. **On host**: `gcloud auth application-default login` (user credentials from `gcloud`)
+
+**Place your `application_default_credentials.json` at the project root** (same directory as `docker-compose.yml`) before running any containerized commands — the Docker bind mount expects it there (`./application_default_credentials.json:/app/secrets/...`).
 
 **Verify authentication on host:**
 
@@ -330,17 +332,45 @@ Worth having as a small dimension rather than a raw string in the fact table. St
 
 ---
 
-## Dashboards
+## Live Dashboards (Shiny)
 
-I actually haven't figured out how to share the dashboards except export them to PDFs. Those are located in the "finished_dashboards" directory.
+Two interactive Shiny dashboards feed from the mart models:
+
+### Operational Dashboard
+Tracks live open tickets with triage KPIs (Overdue, Due Today, At Risk), tickets by priority and age, and a triage pivot by department.
+
+```bash
+uv run shiny run --reload shiny-dashboards/operational_dashboard.py
+```
+
+### SLA & Equity Dashboard
+Tracks resolution equity by community area, breach rates by department, and identifies underserved areas.
+
+```bash
+uv run shiny run --reload shiny-dashboards/sla_dashboard.py
+```
+
+Both dashboards run on `http://127.0.0.1:8000`. Since they share the same port, only one can run at a time. To switch:
+
+```bash
+# Kill the currently running dashboard
+lsof -ti:8000 | xargs kill -9
+
+# Then launch the other one
+uv run shiny run --reload shiny-dashboards/<the_other_dashboard>.py
+```
+
+The dashboards load data from BigQuery into Polars at startup and use reactive filtering — every change in the sidebar dropdowns re-runs the Polars aggregations behind the scenes without re-querying BigQuery.
+
+
+*Note: I actually haven't figured out how to share the Looker dashboards except export them to PDFs. Those are located in the "finished_dashboards" directory.*
 
 ---
-
 
 Now let's go ahead and discuss the tech stack.
 
 
-## Stack and Requirements
+## Tech Stack and Requirements
 
 + **UV** as a package manager
 + **Polars (Processing Layer)**:
@@ -354,10 +384,9 @@ Now let's go ahead and discuss the tech stack.
   + **GCS** for storage
   + **BigQuery** as compute engine for Iceberg tables
   + **BigLake** for Iceberg catalog
-+ **Looker** for dashboarding
++ **Shiny** for dashboarding
 + **Terraform** for GCP infrastructure management
 + **dbt** for data modeling and transformation, and data quality checks
-+ **Great Expectations** for data quality checks
 + **Make** for easier management of the project
 + **mypy** for type checking, **pytest** for Python testing, and **ruff** as Python linter and formatter
 
@@ -871,7 +900,7 @@ docker compose exec flow-runner dbt build --project-dir /app/transform --target 
 docker compose exec flow-runner dbt build --project-dir /app/transform --target dev
 ```
 
-**Note:** `source_not_null_ice_lakehouse_service_requests_community_area` will fail with ~951 nulls — this is a known data quality issue in the source Iceberg table (raw Socrata data). All downstream models build and pass tests.
+**Note:** `source_not_null_ice_lakehouse_service_requests_community_area` will fail with some number of nulls — this is a known data quality issue in the source Iceberg table (raw Socrata data). All downstream models build and pass tests.
 
 ---
 
@@ -923,21 +952,10 @@ Output: `transform/target/compiled/chicago_311_sr_analytics/models/`
 **Generate documentation**
 
 ```bash
-# Host
-cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt docs generate --target dev
-
-# Output: transform/target/catalog.json and manifest.json
+docker compose exec flow-runner dbt docs generate --project-dir /app/transform --target dev
 ```
 
----
-
-**Environment variables summary**
-
-| Variable | Host | Docker |
-| :--- | :--- | :--- |
-| `GOOGLE_APPLICATION_CREDENTIALS` | `../application_default_credentials.json` | `/app/secrets/application_default_credentials.json` |
-| `DBT_PROFILES_DIR` | `/path/to/transform` | `/app/transform` |
-| `GCP_PROJECT_ID` | from `.env` | from `.env` (passed into container) |
+Output: `transform/target/catalog.json` and `manifest.json`
 
 ---
 
@@ -1019,17 +1037,19 @@ For every piece of code and the architecture as a whole, ask yourself:
 
 **General improvements**
 
-1. Use [Secret Manager](https://cloud.google.com/security/products/secret-manager) instead of `.env` file
+1. Use WIF instead of ADC for GCP authentication. 
+2. Use [Secret Manager](https://cloud.google.com/security/products/secret-manager) instead of `.env` file
   + Instead of injecting env vars manually, you use your cloud provider's secrets manager:
     + GCP → Secret Manager
       + Your CI/CD pipeline pulls secrets at deploy/run time — you never store them in the repo or image.
-2. Add dbt workflows to Prefect after daily ingestion flow
-3. Use CI/CD
-4. Use Prefect Cloud instead of Docker setup
-5. Use dbt Cloud
-6. Use RBAC
-7. Use VPC for GCP resources
-8. Optimize Apache Iceberg, e.g. compaction (at a later stage)
+3. Add dbt workflows to Prefect after daily ingestion flow
+4. Great Expectations or Soda for data quality checks
+5. Use CI/CD
+6. Use Prefect Cloud instead of Docker setup
+7. Use dbt Cloud
+8. Use RBAC
+9. Use VPC for GCP resources
+10. Optimize Apache Iceberg, e.g. compaction (at a later stage)
 
 
 **Enhancements regarding data modeling part**
