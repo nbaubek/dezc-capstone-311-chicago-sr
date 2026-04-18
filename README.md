@@ -8,10 +8,23 @@ This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 
 ![img](311-banner-image.png)
 
-Quick start:
-+ `make infra-up`
-+ `make sync-env`
-+ `make container-up`
+---
+
+**Quick Start**
+
+1. Set up your GCP with service account
+2. Create an application token here
+
+Fill out all your information in the `.env` file (there is `.env.example` at the root). For that you will need a GCP service account. And then run make commands defined below. If you're using Claude Code or other assistant, you can refer to this README.md file so that it knows what to do.
+
++ `make infra-up` - Start Terraform infra
++ `make sync-env` - Sync the environment variables
++ `make container-up` - Start Docker setup
++ `make setup-prefect` - Configure Prefect before ingestion
+
+Look up other commands via `make help`
+
+Don't forget to run `docker compose down` and `make destroy` after you've run the pipeline and dbt models.
 
 ---
 
@@ -346,7 +359,7 @@ Now let's go ahead and discuss the tech stack.
 + **dbt** for data modeling and transformation, and data quality checks
 + **Great Expectations** for data quality checks
 + **Make** for easier management of the project
-+ **mypy** for type checking, **pytest** for Python testing, **sqlfluff** for testing SQL in dbt models, and **ruff** as Python linter and formatter
++ **mypy** for type checking, **pytest** for Python testing, and **ruff** as Python linter and formatter
 
 <br>
 
@@ -476,7 +489,7 @@ You need to run `docker compose up -d` or `make container-up` command to trigger
 
 ## AI assistant setup (If you're using Claude Code or other AI assistants)
 
-I have tried to use `CLAUDE.md` to define general instructions for this project.
+I have used `CLAUDE.md` to define general instructions for this project.
 
 ### MCP Servers
 
@@ -815,31 +828,23 @@ Total number of columns: 35
 
 ## Working with dbt models and seeds
 
-The Iceberg table data serves as the source for downstream dbt models and marts. All dbt commands run from the `transform/` directory.
+The Iceberg table data serves as the source for downstream dbt models and marts. All dbt commands run inside the `flow-runner` Docker container — no local dbt installation needed.
 
 **Prerequisites**
 
-Credentials must be available at `application_default_credentials.json` in the project root.
+1. `docker compose up -d` — start all containers
+2. GCP credentials mounted at `/app/secrets/application_default_credentials.json` inside the container
 
-**From host (with `.env` sourced)**
+**Install dbt packages**
 
 ```bash
-# Set up environment
-set -a && source .env && set +a
-
-# Install dbt packages
-cd transform && dbt deps
-
-# Verify connection
-GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt debug --target dev
+docker compose exec flow-runner bash -c "cd /app/transform && dbt deps"
 ```
 
-**From Docker**
+**Verify connection**
 
 ```bash
-# Inside flow-runner container
-docker compose exec flow-runner bash -c "cd /app/transform && dbt deps"
-docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt debug --target dev"
+docker compose exec flow-runner dbt debug --project-dir /app/transform --target dev
 ```
 
 ---
@@ -849,11 +854,7 @@ docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION
 Seeds are CSV files in `transform/seeds/` documented in `transform/seeds/properties.yml`. They must be loaded into BigQuery before dimensions that depend on them can build.
 
 ```bash
-# Host
-cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt seed --target dev
-
-# Docker
-docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt seed --target dev"
+docker compose exec flow-runner dbt seed --project-dir /app/transform --target dev
 ```
 
 This loads all three seeds: `community_areas` (77 rows), `sla_targets` (110 rows), `department_metadata` (14 rows).
@@ -863,37 +864,31 @@ This loads all three seeds: `community_areas` (77 rows), `sla_targets` (110 rows
 **Build all models and run all tests**
 
 ```bash
-# Host — full refresh (recreates all tables)
-cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt build --target dev --full-refresh
+# Full refresh — recreates all tables (use after initial setup or schema changes)
+docker compose exec flow-runner dbt build --project-dir /app/transform --target dev --full-refresh
 
-# Host — normal incremental run (only processes changed models)
-cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt build --target dev
-
-# Docker
-docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt build --target dev --full-refresh"
+# Normal run — incremental (only processes changed models)
+docker compose exec flow-runner dbt build --project-dir /app/transform --target dev
 ```
 
-**Note:** `source_not_null_ice_lakehouse_service_requests_community_area` will fail with ~4,765 nulls — this is a known data quality issue in the source Iceberg table, not a modeling bug. All downstream models build and pass tests.
+**Note:** `source_not_null_ice_lakehouse_service_requests_community_area` will fail with ~951 nulls — this is a known data quality issue in the source Iceberg table (raw Socrata data). All downstream models build and pass tests.
 
 ---
 
 **Build by layer**
 
 ```bash
-# Seeds
-dbt seed --target dev
-
-# Staging (view — no table created, but tests run against source)
-dbt build --select path:models/staging --target dev
+# Seeds first
+docker compose exec flow-runner dbt seed --project-dir /app/transform --target dev
 
 # Dimensions (tables)
-dbt build --select path:models/dimensions --target dev --full-refresh
+docker compose exec flow-runner dbt build --project-dir /app/transform --select chicago_311_sr_analytics.dimensions --target dev
 
 # Facts (incremental tables)
-dbt build --select path:models/facts --target dev --full-refresh
+docker compose exec flow-runner dbt build --project-dir /app/transform --select chicago_311_sr_analytics.facts --target dev
 
 # Marts
-dbt build --select path:models/marts --target dev --full-refresh
+docker compose exec flow-runner dbt build --project-dir /app/transform --select chicago_311_sr_analytics.marts --target dev
 ```
 
 ---
@@ -901,11 +896,7 @@ dbt build --select path:models/marts --target dev --full-refresh
 **Run a specific model**
 
 ```bash
-# Host
-cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt run --select dim_geography --target dev --full-refresh
-
-# Docker
-docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt run --select dim_geography --target dev --full-refresh"
+docker compose exec flow-runner dbt build --project-dir /app/transform --select dim_geography --target dev --full-refresh
 ```
 
 ---
@@ -913,11 +904,7 @@ docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION
 **Run tests only (no materialization)**
 
 ```bash
-# Host
-cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt test --target dev
-
-# Docker
-docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/application_default_credentials.json DBT_PROFILES_DIR=/app/transform dbt test --target dev"
+docker compose exec flow-runner dbt test --project-dir /app/transform --target dev
 ```
 
 ---
@@ -925,11 +912,11 @@ docker compose exec flow-runner bash -c "cd /app/transform && GOOGLE_APPLICATION
 **Compile (generate SQL without running — for debugging)**
 
 ```bash
-# Host
-cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credentials.json dbt compile --target dev
-
-# Output: transform/target/compiled/chicago_311_sr_analytics/models/
+docker compose exec flow-runner dbt compile --project-dir /app/transform --target dev
 ```
+
+Output: `transform/target/compiled/chicago_311_sr_analytics/models/`
+
 
 ---
 
@@ -956,7 +943,13 @@ cd transform && GOOGLE_APPLICATION_CREDENTIALS=../application_default_credential
 
 ## Testing and development dependencies
 
-Tools for linting, type-checking, and testing Python code.
+Tools for linting, type-checking, and testing Python code. These run on the host (the `flows/` directory is mounted from host).
+
+**Prerequisites**
+
+```bash
+uv sync --group dev  # first run only — installs ruff, mypy, pytest
+```
 
 | Tool | Purpose | Config |
 |------|---------|--------|
@@ -964,13 +957,9 @@ Tools for linting, type-checking, and testing Python code.
 | **mypy** | Static type checker for Python | `pyproject.toml` `[tool.mypy]` |
 | **pytest** | Unit tests for pipeline Python code | `pyproject.toml` `[tool.pytest]`, `flows/tests/conftest.py` |
 
-All tools run from the project root.
-
 ---
 
 ### From host
-
-Requires dev dependencies: `uv sync --group dev` (first run only).
 
 ```bash
 # Python linting
@@ -1034,13 +1023,13 @@ For every piece of code and the architecture as a whole, ask yourself:
   + Instead of injecting env vars manually, you use your cloud provider's secrets manager:
     + GCP → Secret Manager
       + Your CI/CD pipeline pulls secrets at deploy/run time — you never store them in the repo or image.
-2. Use CI/CD
-3. Use Prefect Cloud instead of Docker setup
-4. Use dbt Cloud
-5. Use RBAC
-6. Use VPC for GCP resources
-7. Optimize Apache Iceberg, e.g. compaction (at a later stage)
-8. ...
+2. Add dbt workflows to Prefect after daily ingestion flow
+3. Use CI/CD
+4. Use Prefect Cloud instead of Docker setup
+5. Use dbt Cloud
+6. Use RBAC
+7. Use VPC for GCP resources
+8. Optimize Apache Iceberg, e.g. compaction (at a later stage)
 
 
 **Enhancements regarding data modeling part**
