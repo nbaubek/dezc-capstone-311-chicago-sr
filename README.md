@@ -1042,14 +1042,17 @@ For every piece of code and the architecture as a whole, ask yourself:
   + Instead of injecting env vars manually, you use your cloud provider's secrets manager:
     + GCP → Secret Manager
       + Your CI/CD pipeline pulls secrets at deploy/run time — you never store them in the repo or image.
-3. Add dbt workflows to Prefect after daily ingestion flow
+3. Add dbt workflows to Prefect after daily ingestion flow and make sure Prefect orchestrates all stages of the pipeline
 4. Great Expectations or Soda for data quality checks
 5. Use CI/CD
-6. Use Prefect Cloud instead of Docker setup
+6. Use Prefect Cloud to track Flows and Tasks
 7. Use dbt Cloud
 8. Use RBAC
 9. Use VPC for GCP resources
 10. Optimize Apache Iceberg, e.g. compaction (at a later stage)
+11. [OpenMetadata](https://open-metadata.org/) for discovery, observability, and governance. Now, it may not be applicable to a project of this scale, but it can be a future improvement.
+
+Overall, making sure the pipeline converges to a data platform that is robust and usable long-term is essential.
 
 
 **Enhancements regarding data modeling part**
