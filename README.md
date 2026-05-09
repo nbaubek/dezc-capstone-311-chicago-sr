@@ -8,7 +8,7 @@ This is my Capstone project for DE Zoomcamp 2026 by DataTalks.Club.
 
 ![img](311-banner-image.png)
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Quick Start**
 
@@ -26,7 +26,7 @@ Look up other commands via `make help`.
 
 Don't forget to run `docker compose down` and `make destroy` after you've run the pipeline and dbt models. Note: `make destroy` will require you to clean up GCS bucket data and BigQuery dataset.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## GCP Authentication (Application Default Credentials)
 
@@ -61,7 +61,7 @@ The credentials file is mounted read-only at `/app/secrets/application_default_c
 
 *Note: If you want to use CI/CD, you will need to set up WIF*
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## Business Scenario and Data Product
 
@@ -77,7 +77,7 @@ From that, the real needs are:
 3. **Geographic equity analysis** — are some neighborhoods getting systematically slower service than others?
 4. **Audit reporting** — automated, reproducible compliance reports instead of manual spreadsheet pulls
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 Those four needs map directly to pipeline components and architecture. Based on the above needs we need to formulate our own project requirements:
 
@@ -86,7 +86,7 @@ Those four needs map directly to pipeline components and architecture. Based on 
 
 <br>
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 <br>
 
@@ -111,7 +111,7 @@ This matters because operations and executive users ask fundamentally different 
 
 These two personas map to our two dashboards — **Operational Dashboard** for the operations team, **SLA and Equity Dashboard** for executives. The mart models feed them separately.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ### Pipeline SLAs 
 
@@ -130,7 +130,7 @@ These are our pipeline's own service commitments — distinct from the city's 31
 | **Ingestion failure recovery** | Next day's run catches up via incremental | `last_modified_date` watermark |
 | **Backfill completion (initial)** | 2024–2025 and part of 2026 loaded before daily schedule starts | Manual verification |
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 
 **Data contract** — the schema guarantees we make to downstream consumers (dashboards, analysts): which columns are guaranteed non-null, what the grain of each table is, what uniqueness constraints hold
@@ -168,7 +168,7 @@ These are our pipeline's own service commitments — distinct from the city's 31
 | **median_resolution_days** | float | Nullable |
 | **equity_index** | float | Nullable — explained below |
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 
 **Business rules** — the decisions that need to be documented: how duplicates are handled, how SLA targets are assigned, how geographic equity is measured
@@ -192,7 +192,7 @@ These are the decisions that must be written down so dbt tests can enforce them 
 + **BR-007: Incremental load watermark**
   + Daily incremental runs fetch all records where `last_modified_date` > `last_successful_run_date`. The watermark is stored in Prefect as a flow variable and updated only on successful completion. Failed runs do not advance the watermark — the next run re-fetches from the last successful point.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## Data Modeling approach
 
@@ -294,7 +294,7 @@ Worth having as a small dimension rather than a raw string in the fact table. St
 
     + **Type: SCD Type 0** — the status vocabulary is fixed.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **SCD strategy summary**
 
@@ -308,7 +308,7 @@ Worth having as a small dimension rather than a raw string in the fact table. St
 
 <br>
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 <br>
 
@@ -330,7 +330,7 @@ Worth having as a small dimension rather than a raw string in the fact table. St
     + **Clustering:** `community_area_id` and `request_type_id` — exactly the two fields required to compute the equity index in `mart_sla_performance`.
     + **Why a separate table:** Equity analysis requires comparing per-area resolution times against citywide baselines for the same request type. Open tickets systematically undercount resolution days, so they must be excluded.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## Live Dashboards (Shiny)
 
@@ -365,7 +365,7 @@ The dashboards load data from BigQuery into Polars at startup and use reactive f
 
 *Note: I actually haven't figured out how to share the Looker dashboards except export them to PDFs. Those are located in the "finished_dashboards" directory.*
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 Now let's go ahead and discuss the tech stack.
 
@@ -402,7 +402,7 @@ A high-level overview of how the architecture works:
 | **Metadata** | Stored by BigQuery in BigLake |
 
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 
 ## Terraform setup
@@ -629,7 +629,7 @@ docker-compose exec flow-runner prefect deploy \
 + Only run 1 flow at a time. Concurrent writes cause `CommitFailedException`. 
 + Also, if your run has failed or encountered exceptions, cancel it manually immediately. Only then create new runs.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 #### Yearly Flow
 
@@ -644,7 +644,7 @@ docker-compose exec flow-runner python -c "from flows.chicago_pipeline import ye
 
 **Performance:** ~25 minutes per year. 1.9M+ rows.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 #### Daily Flow (WAP - Audit Table Swap)
 
@@ -681,7 +681,7 @@ daily_flow()  # Automatically uses 24h lookback on last_modified_date
 
 **Performance:** ~2 minutes for 3-4K rows. Validation uses date filter for efficiency.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 #### Backfill Flow
 
@@ -705,7 +705,7 @@ backfill_flow("2024-01-01", "2025-01-01", chunk_months=1) # 1 month is probably 
 backfill_flow("2026-03-01", "2026-04-01")
 ```
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## Data Summary
 
@@ -721,7 +721,7 @@ This [link](https://dev.socrata.com/foundry/data.cityofchicago.org/v6vf-nfxy) ha
 
 **Derived Columns:** `created_year` and `created_month` are derived from `created_date.dt.year()` and `created_date.dt.month()` via Polars for partitioning. `created_day_of_week` is also derived from `created_date.dt.weekday()` (0=Monday to 6=Sunday) — Socrata sends day name strings which cannot be directly cast to integers.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ### **Data Schema**
 
@@ -769,7 +769,7 @@ This [link](https://dev.socrata.com/foundry/data.cityofchicago.org/v6vf-nfxy) ha
 
 `location` is GeoJSON point location and is a combination of `latitude` and `longitude`, therefore it can also be derived if needed.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Schema Changes After Polars Type Casting:**
 
@@ -839,7 +839,7 @@ Total number of columns: 35
 
 *Note:* BigQuery does not enforce nullability constraints. All columns in BigQuery are nullable regardless of schema definitions. Nullable means the column can contain NULL values (missing data).
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Row Counts by Year:**
 
@@ -853,7 +853,7 @@ Total number of columns: 35
 
 **Storage Efficiency:** Parquet compression reduces storage ~8-10x vs raw CSV. Exact GCS storage figures can be obtained via `gcloud storage du gs://<bucket>/chicago_311_lakehouse/`.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## Working with dbt models and seeds
 
@@ -876,7 +876,7 @@ docker compose exec flow-runner bash -c "cd /app/transform && dbt deps"
 docker compose exec flow-runner dbt debug --project-dir /app/transform --target dev
 ```
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Seeds**
 
@@ -888,7 +888,7 @@ docker compose exec flow-runner dbt seed --project-dir /app/transform --target d
 
 This loads all three seeds: `community_areas` (77 rows), `sla_targets` (110 rows), `department_metadata` (14 rows).
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Build all models and run all tests**
 
@@ -902,7 +902,7 @@ docker compose exec flow-runner dbt build --project-dir /app/transform --target 
 
 **Note:** `source_not_null_ice_lakehouse_service_requests_community_area` will fail with some number of nulls — this is a known data quality issue in the source Iceberg table (raw Socrata data). All downstream models build and pass tests.
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Build by layer**
 
@@ -920,7 +920,7 @@ docker compose exec flow-runner dbt build --project-dir /app/transform --select 
 docker compose exec flow-runner dbt build --project-dir /app/transform --select chicago_311_sr_analytics.marts --target dev
 ```
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Run a specific model**
 
@@ -928,7 +928,7 @@ docker compose exec flow-runner dbt build --project-dir /app/transform --select 
 docker compose exec flow-runner dbt build --project-dir /app/transform --select dim_geography --target dev --full-refresh
 ```
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Run tests only (no materialization)**
 
@@ -936,7 +936,7 @@ docker compose exec flow-runner dbt build --project-dir /app/transform --select 
 docker compose exec flow-runner dbt test --project-dir /app/transform --target dev
 ```
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Compile (generate SQL without running — for debugging)**
 
@@ -947,7 +947,7 @@ docker compose exec flow-runner dbt compile --project-dir /app/transform --targe
 Output: `transform/target/compiled/chicago_311_sr_analytics/models/`
 
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 **Generate documentation**
 
@@ -957,7 +957,7 @@ docker compose exec flow-runner dbt docs generate --project-dir /app/transform -
 
 Output: `transform/target/catalog.json` and `manifest.json`
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## Testing and development dependencies
 
@@ -975,7 +975,7 @@ uv sync --group dev  # first run only — installs ruff, mypy, pytest
 | **mypy** | Static type checker for Python | `pyproject.toml` `[tool.mypy]` |
 | **pytest** | Unit tests for pipeline Python code | `pyproject.toml` `[tool.pytest]`, `flows/tests/conftest.py` |
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ### From host
 
@@ -993,7 +993,7 @@ uv run mypy flows/ --no-error-summary
 uv run pytest flows/tests/ -v
 ```
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ### Via Make
 
@@ -1004,7 +1004,7 @@ make typecheck   # uv run mypy
 make test        # uv run pytest
 ```
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ### Test structure
 
@@ -1016,7 +1016,7 @@ Tests live in `flows/tests/` and mock Prefect at the session level (see `conftes
 - Temporal column derivation (`created_year`, `created_month`, `created_day_of_week`)
 - Table identifier construction
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## How do I measure that the pipeline is reliable (Whether with AI assistant or without)?
 
@@ -1031,7 +1031,7 @@ For every piece of code and the architecture as a whole, ask yourself:
 | Partial Failure   | If the job crashes at 50%, do I have a mess of "half-written" data?        |
 | Observation       | If this fails at 3:00 AM, will the logs tell me exactly why?               |
 
----
+<hr style="height: 3px; background: linear-gradient(to right, #a7aecf, #550aa0); border: none;">
 
 ## Some possible improvements for this project
 
